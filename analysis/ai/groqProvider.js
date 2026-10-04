@@ -18,7 +18,7 @@ export class GroqProvider extends AIProvider {
     const response = await this.client.chat.completions.create({
       model:
         options.model ||
-        "llama-3.3-70b-versatile",
+       "openai/gpt-oss-120b",
 
       messages: [
         {
