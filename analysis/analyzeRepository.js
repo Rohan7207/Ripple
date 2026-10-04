@@ -3,10 +3,7 @@ import { extractSymbols } from "./symbols/symbolExtractor.js";
 import { extractRelationships } from "./relationships/relationshipExtractor.js";
 import { buildGraph } from "./graph/graphBuilder.js";
 
-export async function analyzeRepository(
-  repositoryPath,
-  options = {}
-) {
+export async function analyzeRepository(repositoryPath, options = {}) {
   const { onProgress } = options;
 
   // --------------------------------------------------
@@ -21,7 +18,7 @@ export async function analyzeRepository(
     try {
       onProgress({
         progress,
-        stage
+        stage,
       });
     } catch {
       // Progress reporting must never break analysis
@@ -40,7 +37,7 @@ export async function analyzeRepository(
   const directories = discovery.directories || [];
   const warnings = [...(discovery.warnings || [])];
 
-  reportProgress(20, "EXTRACTING");
+  reportProgress(20, "ANALYZING_FILES");
 
   // --------------------------------------------------
   // Stage 2: Symbol extraction
@@ -48,34 +45,30 @@ export async function analyzeRepository(
 
   const symbols = [];
 
+  reportProgress(25, "ANALYZING_SYMBOLS");
+
   for (const file of files) {
-    if (
-      file.language !== "JavaScript" &&
-      file.language !== "TypeScript"
-    ) {
+    if (file.language !== "JavaScript" && file.language !== "TypeScript") {
       continue;
     }
 
     try {
-      const fileSymbols = extractSymbols(
-        file.absolutePath,
-        file.language
-      );
+      const fileSymbols = extractSymbols(file.absolutePath, file.language);
 
       for (const symbol of fileSymbols) {
         symbols.push({
           ...symbol,
-          filePath: file.path
+          filePath: file.path,
         });
       }
     } catch (error) {
       warnings.push(
-        `Symbol analysis failed for ${file.path}: ${error.message}`
+        `Symbol analysis failed for ${file.path}: ${error.message}`,
       );
     }
   }
 
-  reportProgress(40, "PARSING");
+  reportProgress(40, "ANALYZING_SYMBOLS");
 
   // --------------------------------------------------
   // Stage 3: Relationship extraction
@@ -83,11 +76,10 @@ export async function analyzeRepository(
 
   const relationships = [];
 
+  reportProgress(45, "ANALYZING_RELATIONSHIPS");
+
   for (const file of files) {
-    if (
-      file.language !== "JavaScript" &&
-      file.language !== "TypeScript"
-    ) {
+    if (file.language !== "JavaScript" && file.language !== "TypeScript") {
       continue;
     }
 
@@ -98,45 +90,38 @@ export async function analyzeRepository(
         {
           repositoryPath,
           files,
-          symbols
-        }
+          symbols,
+        },
       );
 
       relationships.push(...fileRelationships);
     } catch (error) {
       warnings.push(
-        `Relationship analysis failed for ${file.path}: ${error.message}`
+        `Relationship analysis failed for ${file.path}: ${error.message}`,
       );
     }
   }
 
-  reportProgress(
-    60,
-    "EXTRACTING_RELATIONSHIPS"
-  );
+  reportProgress(60, "ANALYZING_RELATIONSHIPS");
 
   // --------------------------------------------------
   // Stage 4: Graph construction
   // --------------------------------------------------
 
+  reportProgress(65, "BUILDING_GRAPH");
+
   let graph = {
     nodes: [],
-    edges: []
+    edges: [],
   };
 
   try {
-    graph = buildGraph(
-      files,
-      symbols,
-      relationships
-    );
+    graph = buildGraph(files, symbols, relationships);
   } catch (error) {
-    warnings.push(
-      `Graph construction failed: ${error.message}`
-    );
+    warnings.push(`Graph construction failed: ${error.message}`);
   }
 
-  reportProgress(80, "BUILDING_GRAPH");
+  reportProgress(85, "BUILDING_GRAPH");
 
   // --------------------------------------------------
   // Languages
@@ -146,10 +131,8 @@ export async function analyzeRepository(
     ...new Set(
       files
         .map((file) => file.language)
-        .filter(
-          (language) => language !== "Unknown"
-        )
-    )
+        .filter((language) => language !== "Unknown"),
+    ),
   ];
 
   // --------------------------------------------------
@@ -167,18 +150,19 @@ export async function analyzeRepository(
       files: files.length,
       directories: directories.length,
       symbols: symbols.length,
-      relationships: relationships.length
+      relationships: relationships.length,
     },
     analysis: {
-      coverage:
-        warnings.length === 0
-          ? "FULL"
-          : "PARTIAL",
-      warnings
-    }
+      coverage: warnings.length === 0 ? "FULL" : "PARTIAL",
+      warnings,
+    },
   };
 
-  reportProgress(100, "FINALIZING");
+  // --------------------------------------------------
+  // Stage 5: Finalizing
+  // --------------------------------------------------
+
+  reportProgress(95, "FINALIZING");
 
   return result;
 }

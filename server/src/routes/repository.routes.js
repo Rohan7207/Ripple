@@ -6,7 +6,6 @@ import {
   getRepositoryFilesController,
   getRepositoryAnalysisController,
   getRepositoryFileController,
-  getRepositoryGraphController,
   askRippleController,
   analyzeImpactController,
   analyzeWhatIfController,
@@ -20,7 +19,6 @@ router.get("/:repositoryId/status", getRepositoryStatusController);
 router.get("/:repositoryId/files/:fileId", getRepositoryFileController);
 router.get("/:repositoryId/files", getRepositoryFilesController);
 router.get("/:repositoryId/analysis", getRepositoryAnalysisController);
-router.get("/:repositoryId/graph", getRepositoryGraphController);
 router.post("/:repositoryId/ask", askRippleController);
 router.post("/:repositoryId/impact", analyzeImpactController);
 router.post("/:repositoryId/what-if", analyzeWhatIfController);

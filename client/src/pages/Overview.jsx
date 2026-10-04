@@ -1,432 +1,474 @@
-import RippleLogo from "../components/RippleLogo";
+import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
 import {
-  GitBranch,
-  FileCode2,
-  Boxes,
-  Package,
   Activity,
-  ArrowUpRight,
-  Folder,
+  AlertTriangle,
   Code2,
-  Database,
-  Server,
+  FileCode2,
+  Folder,
+  GitBranch,
+  Package,
   Sparkles,
 } from "lucide-react";
 
+import { getRepository } from "../lib/api";
+
 function Overview() {
-  const stats = [
-    {
-      label: "Files",
-      value: "128",
-      icon: FileCode2,
-      change: "+12 this analysis",
-    },
-    {
-      label: "Functions",
-      value: "342",
-      icon: Code2,
-      change: "Across 31 files",
-    },
-    {
-      label: "Components",
-      value: "48",
-      icon: Boxes,
-      change: "React components",
-    },
-    {
-      label: "Dependencies",
-      value: "24",
-      icon: Package,
-      change: "18 production",
-    },
-  ];
+  const { repositoryId } = useParams();
 
-  const languages = [
-    { name: "JavaScript", percentage: 62 },
-    { name: "CSS", percentage: 18 },
-    { name: "HTML", percentage: 11 },
-    { name: "JSON", percentage: 6 },
-    { name: "Other", percentage: 3 },
-  ];
+  const [repository, setRepository] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const modules = [
-    {
-      name: "src",
-      description: "Main application source code",
-      files: 64,
-      icon: Folder,
-    },
-    {
-      name: "components",
-      description: "Reusable React components",
-      files: 28,
-      icon: Boxes,
-    },
-    {
-      name: "services",
-      description: "API and business logic",
-      files: 17,
-      icon: Server,
-    },
-    {
-      name: "utils",
-      description: "Shared utilities and helpers",
-      files: 12,
-      icon: Activity,
-    },
-  ];
+  const loadRepository = async () => {
+    if (!repositoryId) {
+      setError("No repository was provided.");
+      setLoading(false);
+      return;
+    }
 
-  return (
-    <div className="max-w-7xl mx-auto space-y-6">
-      {/* Repository Header */}
-      <div className="bg-[#0c1016] border border-white/10 rounded-2xl p-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
-              <GitBranch size={24} className="text-blue-400" />
-            </div>
+    try {
+      setLoading(true);
+      setError("");
+
+      const data = await getRepository(repositoryId);
+      setRepository(data);
+    } catch (err) {
+      console.error("Failed to load repository:", err);
+      setError(err.message || "Failed to load repository.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadRepository();
+  }, [repositoryId]);
+
+  if (loading) {
+    return <LoadingState />;
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-7xl mx-auto">
+        <div className="bg-[#0c1016] border border-red-500/20 rounded-xl p-6">
+          <div className="flex items-center gap-3">
+            <AlertTriangle size={20} className="text-red-400" />
 
             <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-xl font-semibold">
-                  ripple-demo
+              <h2 className="text-sm font-medium text-gray-200">
+                Unable to load repository
+              </h2>
+
+              <p className="text-xs text-gray-500 mt-1">{error}</p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={loadRepository}
+            className="mt-4 px-3 py-2 rounded-lg bg-white/[0.05] border border-white/10 text-xs text-gray-300 hover:bg-white/[0.08] transition"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function getTopLevelDirectories(directories, files) {
+    const seen = new Map();
+
+    for (const directory of directories) {
+      const path =
+        typeof directory === "string"
+          ? directory
+          : directory?.path || directory?.name;
+
+      if (!path) continue;
+
+      const normalized = path.replaceAll("\\", "/");
+      const parts = normalized.split("/").filter(Boolean);
+
+      if (!parts.length) continue;
+
+      const name = parts[0];
+
+      if (!seen.has(name)) {
+        seen.set(name, {
+          name,
+          files: 0,
+        });
+      }
+    }
+
+    for (const file of files) {
+      const path =
+        typeof file === "string" ? file : file?.path || file?.relativePath;
+
+      if (!path) continue;
+
+      const normalized = path.replaceAll("\\", "/");
+      const parts = normalized.split("/").filter(Boolean);
+
+      if (parts.length < 2) continue;
+
+      const name = parts[0];
+
+      if (!seen.has(name)) {
+        seen.set(name, {
+          name,
+          files: 0,
+        });
+      }
+
+      seen.get(name).files += 1;
+    }
+
+    return Array.from(seen.values()).slice(0, 6);
+  }
+
+  const analysis = repository?.analysis || {};
+  const statistics = analysis.statistics || {};
+  const analysisInfo = analysis.analysis || {};
+
+  const files = repository?.files || [];
+  const directories = repository?.directories || [];
+  const languages = analysis.languages || [];
+  const warnings = analysisInfo.warnings || [];
+
+  const fileCount =
+    statistics.files ?? repository?.totalFiles ?? files.length ?? 0;
+  const symbolCount = statistics.symbols ?? 0;
+  const relationshipCount = statistics.relationships ?? 0;
+  const languageCount = languages.length;
+
+  const topLevelDirectories = getTopLevelDirectories(directories, files);
+
+  const displayLanguages = languages.slice(0, 8);
+
+  const repositoryName =
+    repository?.name ||
+    repository?.url?.split("/").filter(Boolean).pop()?.replace(".git", "") ||
+    repository?.id ||
+    "Repository";
+
+  const sourceLabel = repository?.source === "github" ? "GitHub" : "ZIP";
+
+  const isReady = repository?.status === "READY";
+
+  return (
+    <div className="max-w-7xl mx-auto space-y-4">
+      {/* Repository Header */}
+      <div className="bg-[#0c1016] border border-white/10 rounded-xl px-5 py-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
+              <GitBranch size={19} className="text-blue-400" />
+            </div>
+
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-base font-semibold text-gray-100 truncate">
+                  {repositoryName}
                 </h1>
 
-                <span className="px-2.5 py-1 rounded-full text-xs bg-green-500/10 border border-green-500/20 text-green-400">
-                  Analysis Complete
+                <span className="px-2 py-0.5 rounded-full text-[10px] bg-blue-500/10 border border-blue-500/20 text-blue-400">
+                  {sourceLabel}
+                </span>
+
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10px] border ${
+                    isReady
+                      ? "bg-green-500/10 border-green-500/20 text-green-400"
+                      : "bg-yellow-500/10 border-yellow-500/20 text-yellow-400"
+                  }`}
+                >
+                  {isReady
+                    ? "Analysis Complete"
+                    : repository?.status || "Processing"}
                 </span>
               </div>
 
-              <p className="text-sm text-gray-500 mt-1">
-                github.com/user/ripple-demo
+              <p className="text-xs text-gray-500 mt-1 truncate">
+                {repository?.url || repository?.id}
               </p>
             </div>
           </div>
 
-          <div className="text-left md:text-right">
-            <p className="text-xs text-gray-500">
-              Last analyzed
+          <div className="text-left md:text-right shrink-0">
+            <p className="text-[10px] text-gray-600 uppercase tracking-wide">
+              Repository ID
             </p>
-            <p className="text-sm text-gray-300 mt-1">
-              Just now
-            </p>
+
+            <p className="text-xs text-gray-400 mt-1">{repository?.id}</p>
           </div>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {stats.map((stat) => {
-          const Icon = stat.icon;
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatCard
+          icon={FileCode2}
+          label="Files"
+          value={fileCount}
+          description="Discovered"
+        />
 
-          return (
-            <div
-              key={stat.label}
-              className="bg-[#0c1016] border border-white/10 rounded-2xl p-5 hover:border-white/20 transition"
-            >
-              <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-xl bg-white/[0.04] flex items-center justify-center">
-                  <Icon size={19} className="text-gray-400" />
-                </div>
+        <StatCard
+          icon={Code2}
+          label="Symbols"
+          value={symbolCount}
+          description="Functions & classes"
+        />
 
-                <ArrowUpRight
-                  size={16}
-                  className="text-gray-600"
-                />
-              </div>
-
-              <p className="text-3xl font-bold mt-5">
-                {stat.value}
-              </p>
-
-              <p className="text-sm text-gray-400 mt-1">
-                {stat.label}
-              </p>
-
-              <p className="text-xs text-gray-600 mt-3">
-                {stat.change}
-              </p>
-            </div>
-          );
-        })}
+        <StatCard
+          icon={Package}
+          label="Languages"
+          value={languageCount}
+          description="Detected"
+        />
       </div>
 
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      {/* Analysis Summary */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Languages */}
-        <div className="xl:col-span-2 bg-[#0c1016] border border-white/10 rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="font-semibold">
-                Language Distribution
-              </h2>
-              <p className="text-xs text-gray-500 mt-1">
-                Languages detected across the repository
-              </p>
+        <section className="lg:col-span-2 bg-[#0c1016] border border-white/10 rounded-xl p-4">
+          <SectionHeader
+            icon={Code2}
+            title="Language Distribution"
+            description="Languages detected in the repository"
+          />
+
+          {displayLanguages.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mt-4">
+              {displayLanguages.map((language) => {
+                const name =
+                  typeof language === "string"
+                    ? language
+                    : language?.name || "Unknown";
+
+                return (
+                  <div
+                    key={name}
+                    className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-white/[0.025] border border-white/5"
+                  >
+                    <div className="w-2 h-2 rounded-full bg-blue-400" />
+
+                    <span className="text-xs text-gray-300 truncate">
+                      {name}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
+          ) : (
+            <EmptyText text="No languages detected." />
+          )}
+        </section>
 
-            <Code2 size={20} className="text-gray-500" />
+        {/* Health */}
+        <section className="bg-[#0c1016] border border-white/10 rounded-xl p-4">
+          <SectionHeader
+            icon={Activity}
+            title="Analysis Health"
+            description="Structural analysis status"
+          />
+
+          <div className="grid grid-cols-2 gap-2 mt-4">
+            <HealthItem
+              label="Coverage"
+              value={analysisInfo.coverage || "UNKNOWN"}
+              success={analysisInfo.coverage === "FULL"}
+            />
+
+            <HealthItem
+              label="Warnings"
+              value={warnings.length}
+              warning={warnings.length > 0}
+            />
+
+            <HealthItem label="Files" value={fileCount} />
+
+            <HealthItem label="Symbols" value={symbolCount} />
           </div>
+        </section>
+      </div>
 
-          <div className="space-y-5">
-            {languages.map((language) => (
-              <div key={language.name}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-300">
-                    {language.name}
-                  </span>
+      {/* Repository Structure */}
+      <section className="bg-[#0c1016] border border-white/10 rounded-xl p-4">
+        <SectionHeader
+          icon={Folder}
+          title="Repository Structure"
+          description="Top-level areas discovered during ingestion"
+        />
 
-                  <span className="text-xs text-gray-500">
-                    {language.percentage}%
-                  </span>
+        {topLevelDirectories.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mt-4">
+            {topLevelDirectories.map((directory) => (
+              <div
+                key={directory.name}
+                className="flex items-center gap-3 px-3 py-3 rounded-lg bg-white/[0.025] border border-white/5"
+              >
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+                  <Folder size={15} className="text-blue-400" />
                 </div>
 
-                <div className="h-2 bg-white/[0.04] rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-blue-500 rounded-full"
-                    style={{
-                      width: `${language.percentage}%`,
-                    }}
-                  />
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-gray-300 truncate">
+                    {directory.name}
+                  </p>
+
+                  <p className="text-[10px] text-gray-600 mt-0.5">
+                    {directory.files > 0
+                      ? `${directory.files} files`
+                      : "Directory"}
+                  </p>
                 </div>
               </div>
             ))}
           </div>
-        </div>
+        ) : (
+          <EmptyText text="No directory structure available." />
+        )}
+      </section>
 
-        {/* Repository Health */}
-        <div className="bg-[#0c1016] border border-white/10 rounded-2xl p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-9 h-9 rounded-lg bg-green-500/10 flex items-center justify-center">
-              <Activity
-                size={18}
-                className="text-green-400"
-              />
-            </div>
-
-            <div>
-              <h2 className="font-semibold">
-                Repository Health
-              </h2>
-              <p className="text-xs text-gray-500">
-                Overall analysis
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-center py-4">
-            <div className="w-32 h-32 rounded-full border-8 border-green-500/20 flex items-center justify-center">
-              <div className="text-center">
-                <p className="text-3xl font-bold text-green-400">
-                  87
-                </p>
-                <p className="text-xs text-gray-500">
-                  / 100
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-4 text-center">
-            <p className="text-sm font-medium">
-              Good structure
-            </p>
-
-            <p className="text-xs text-gray-600 mt-1">
-              A few areas could be improved
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Architecture */}
-      <div className="bg-[#0c1016] border border-white/10 rounded-2xl p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="font-semibold">
-              Architecture Overview
-            </h2>
-
-            <p className="text-xs text-gray-500 mt-1">
-              High-level structure detected by Ripple
-            </p>
-          </div>
-
-          <NetworkIcon />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <ArchitectureNode
-            icon={Folder}
-            title="Frontend"
-            description="React UI"
-          />
-
-          <ArchitectureArrow />
-
-          <ArchitectureNode
-            icon={Server}
-            title="API Layer"
-            description="REST services"
-          />
-
-          <ArchitectureArrow />
-
-          <ArchitectureNode
-            icon={Database}
-            title="Database"
-            description="Data storage"
-          />
-        </div>
-      </div>
-
-      {/* Modules + AI Insights */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        {/* Modules */}
-        <div className="bg-[#0c1016] border border-white/10 rounded-2xl p-6">
-          <div className="mb-5">
-            <h2 className="font-semibold">
-              Key Modules
-            </h2>
-
-            <p className="text-xs text-gray-500 mt-1">
-              Important areas of the repository
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            {modules.map((module) => {
-              const Icon = module.icon;
-
-              return (
-                <div
-                  key={module.name}
-                  className="flex items-center gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition"
-                >
-                  <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                    <Icon
-                      size={18}
-                      className="text-blue-400"
-                    />
-                  </div>
-
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">
-                      {module.name}
-                    </p>
-
-                    <p className="text-xs text-gray-600 mt-1">
-                      {module.description}
-                    </p>
-                  </div>
-
-                  <span className="text-xs text-gray-500">
-                    {module.files} files
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* AI Insights */}
-        <div className="bg-[#0c1016] border border-white/10 rounded-2xl p-6">
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
-              <Sparkles
-                size={19}
-                className="text-purple-400"
-              />
-            </div>
-
-            <div>
-              <h2 className="font-semibold">
-                Ripple Insights
-              </h2>
-
-              <p className="text-xs text-gray-500 mt-1">
-                AI-generated repository observations
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <Insight
-              title="Centralized API layer"
-              description="Most external communication is handled through a dedicated service layer."
-            />
-
-            <Insight
-              title="Reusable components"
-              description="The frontend contains a strong collection of reusable UI components."
-            />
-
-            <Insight
-              title="Dependency concentration"
-              description="Several core modules depend on a small number of shared utilities."
-            />
-
-            <Insight
-              title="Potential improvement"
-              description="Some modules could be separated further to reduce coupling."
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function NetworkIcon() {
-  return (
-    <div className="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center">
-      <GitBranch size={18} className="text-blue-400" />
-    </div>
-  );
-}
-
-function ArchitectureNode({
-  icon: Icon,
-  title,
-  description,
-}) {
-  return (
-    <div className="bg-white/[0.02] border border-white/10 rounded-xl p-5 flex items-center gap-4">
-      <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
-        <Icon size={18} className="text-blue-400" />
-      </div>
-
+      {/* Ripple Analysis */}
       <div>
-        <p className="text-sm font-medium">
-          {title}
-        </p>
+        <section className="bg-[#0c1016] border border-white/10 rounded-xl p-4">
+          <SectionHeader
+            icon={Sparkles}
+            title="Ripple Analysis"
+            description="Repository facts from structural analysis"
+          />
 
-        <p className="text-xs text-gray-600 mt-1">
-          {description}
-        </p>
+          <div className="space-y-2 mt-4">
+            <FactRow
+              label="Analysis coverage"
+              value={analysisInfo.coverage || "UNKNOWN"}
+            />
+
+            <FactRow label="Detected languages" value={languageCount} />
+
+            <FactRow label="Symbols discovered" value={symbolCount} />
+
+            <FactRow label="Relationships detected" value={relationshipCount} />
+
+            <FactRow
+              label="Warnings"
+              value={warnings.length}
+              warning={warnings.length > 0}
+            />
+          </div>
+
+          <div className="mt-3 px-3 py-2.5 rounded-lg bg-purple-500/5 border border-purple-500/10">
+            <p className="text-[10px] text-purple-400">AI reasoning</p>
+
+            <p className="text-[11px] text-gray-500 mt-1">
+              AI insights will appear when repository reasoning is connected.
+            </p>
+          </div>
+        </section>
       </div>
     </div>
   );
 }
 
-function ArchitectureArrow() {
+function StatCard({ icon: Icon, label, value, description }) {
   return (
-    <div className="hidden md:flex items-center justify-center text-gray-600">
-      →
+    <div className="bg-[#0c1016] border border-white/10 rounded-xl p-4">
+      <div className="flex items-center justify-between">
+        <div className="w-8 h-8 rounded-lg bg-white/[0.04] flex items-center justify-center">
+          <Icon size={16} className="text-gray-400" />
+        </div>
+
+        <span className="text-[10px] text-gray-600">{description}</span>
+      </div>
+
+      <p className="text-2xl font-bold text-gray-100 mt-3">{value}</p>
+
+      <p className="text-xs text-gray-400 mt-0.5">{label}</p>
     </div>
   );
 }
 
-function Insight({ title, description }) {
+function SectionHeader({ icon: Icon, title, description }) {
   return (
-    <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5">
-      <p className="text-sm font-medium text-gray-200">
-        {title}
-      </p>
+    <div className="flex items-center gap-3">
+      <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+        <Icon size={15} className="text-blue-400" />
+      </div>
 
-      <p className="text-xs text-gray-500 mt-1.5 leading-5">
-        {description}
+      <div className="min-w-0">
+        <h2 className="text-sm font-semibold text-gray-200">{title}</h2>
+
+        <p className="text-[10px] text-gray-600 mt-0.5">{description}</p>
+      </div>
+    </div>
+  );
+}
+
+function HealthItem({ label, value, success, warning }) {
+  return (
+    <div className="px-3 py-2.5 rounded-lg bg-white/[0.025] border border-white/5">
+      <p className="text-[10px] text-gray-600">{label}</p>
+
+      <p
+        className={`text-sm font-medium mt-1 ${
+          success
+            ? "text-green-400"
+            : warning
+              ? "text-yellow-400"
+              : "text-gray-300"
+        }`}
+      >
+        {value}
       </p>
+    </div>
+  );
+}
+
+function FactRow({ label, value, warning }) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg bg-white/[0.02] border border-white/5">
+      <span className="text-xs text-gray-500">{label}</span>
+
+      <span
+        className={`text-xs font-medium ${
+          warning ? "text-yellow-400" : "text-gray-300"
+        }`}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function EmptyText({ text }) {
+  return <p className="text-xs text-gray-600 mt-4">{text}</p>;
+}
+
+function LoadingState() {
+  return (
+    <div className="max-w-7xl mx-auto space-y-4 animate-pulse">
+      <div className="h-20 rounded-xl bg-white/[0.03] border border-white/5" />
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[1, 2, 3, 4].map((item) => (
+          <div
+            key={item}
+            className="h-28 rounded-xl bg-white/[0.03] border border-white/5"
+          />
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 h-52 rounded-xl bg-white/[0.03] border border-white/5" />
+        <div className="h-52 rounded-xl bg-white/[0.03] border border-white/5" />
+      </div>
+
+      <div className="h-40 rounded-xl bg-white/[0.03] border border-white/5" />
     </div>
   );
 }

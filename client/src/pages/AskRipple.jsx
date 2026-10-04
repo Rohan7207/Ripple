@@ -1,4 +1,3 @@
-import RippleLogo from "../components/RippleLogo";
 import { useState } from "react";
 import {
   Send,
@@ -12,12 +11,14 @@ import {
   ArrowUpRight,
   Loader2,
   Lightbulb,
-  Database,
-  ShieldCheck,
-  GitBranch,
 } from "lucide-react";
 
+import { useParams } from "react-router-dom";
+import { askRepository } from "../lib/api";
+
 function AskRipple() {
+  const { repositoryId } = useParams();
+
   const [question, setQuestion] = useState("");
   const [isThinking, setIsThinking] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
@@ -32,213 +33,7 @@ function AskRipple() {
     },
   ]);
 
-  const suggestions = [
-    {
-      icon: ShieldCheck,
-      title: "How does authentication work?",
-      description:
-        "Trace the authentication flow through the repository.",
-    },
-    {
-      icon: Database,
-      title: "Where is the database connected?",
-      description:
-        "Find where the application initializes its database.",
-    },
-    {
-      icon: GitBranch,
-      title: "How does a request flow?",
-      description:
-        "Follow a request from frontend to backend.",
-    },
-    {
-      icon: FileCode2,
-      title: "Explain the project structure",
-      description:
-        "Get an overview of the important files and modules.",
-    },
-  ];
-
-  /*
-   * Mock answers for the frontend demo.
-   *
-   * Later this function will call:
-   *
-   * POST /api/repositories/:repositoryId/ask
-   */
-  const getMockAnswer = (query) => {
-    const lowerQuery = query.toLowerCase();
-
-    if (
-      lowerQuery.includes("authentication") ||
-      lowerQuery.includes("auth") ||
-      lowerQuery.includes("login")
-    ) {
-      return {
-        content:
-          "The authentication flow is handled through the authentication service and middleware. A user request first reaches the API layer, where the authentication middleware validates the user's credentials or token. If validation succeeds, the request continues to the relevant service. This keeps authentication logic separate from the application's business logic.",
-        files: [
-          {
-            name: "src/middleware/auth.js",
-            type: "Middleware",
-          },
-          {
-            name: "src/services/authService.js",
-            type: "Service",
-          },
-          {
-            name: "src/routes/userRoutes.js",
-            type: "Route",
-          },
-        ],
-        code: `const authenticate = async (req, res, next) => {
-  const token = req.headers.authorization;
-
-  if (!token) {
-    return res.status(401).json({
-      message: "Authentication required",
-    });
-  }
-
-  const user = await verifyToken(token);
-
-  req.user = user;
-  next();
-};`,
-      };
-    }
-
-    if (
-      lowerQuery.includes("database") ||
-      lowerQuery.includes("mongodb") ||
-      lowerQuery.includes("mongo")
-    ) {
-      return {
-        content:
-          "The database connection is initialized during the backend startup process. The application establishes a MongoDB connection before handling repository or API operations. Database access is then used by the service layer to read and persist application data.",
-        files: [
-          {
-            name: "src/config/database.js",
-            type: "Configuration",
-          },
-          {
-            name: "src/models/",
-            type: "Models",
-          },
-          {
-            name: "server.js",
-            type: "Entry Point",
-          },
-        ],
-        code: `import mongoose from "mongoose";
-
-export async function connectDatabase() {
-  await mongoose.connect(process.env.MONGODB_URI);
-
-  console.log("Database connected");
-}`,
-      };
-    }
-
-    if (
-      lowerQuery.includes("request") ||
-      lowerQuery.includes("flow") ||
-      lowerQuery.includes("api")
-    ) {
-      return {
-        content:
-          "A typical request flows from the React frontend to the Express API layer. The API route receives the request and passes it through middleware before reaching the appropriate service. The service performs the business logic and communicates with the database when necessary. The result is then returned through the API to the frontend.",
-        files: [
-          {
-            name: "client/src/",
-            type: "Frontend",
-          },
-          {
-            name: "src/routes/",
-            type: "API Routes",
-          },
-          {
-            name: "src/services/",
-            type: "Business Logic",
-          },
-          {
-            name: "src/models/",
-            type: "Database",
-          },
-        ],
-        code: `Frontend
-   ↓
-API Route
-   ↓
-Middleware
-   ↓
-Service
-   ↓
-Database
-   ↓
-Service
-   ↓
-API Response
-   ↓
-Frontend`,
-      };
-    }
-
-    if (
-      lowerQuery.includes("structure") ||
-      lowerQuery.includes("project")
-    ) {
-      return {
-        content:
-          "The repository is organized into several major areas. The frontend contains the React application and UI components. The API layer handles incoming HTTP requests. Services contain business logic, authentication manages access control, and the database layer handles persistence.",
-        files: [
-          {
-            name: "client/",
-            type: "Frontend",
-          },
-          {
-            name: "src/routes/",
-            type: "API",
-          },
-          {
-            name: "src/services/",
-            type: "Business Logic",
-          },
-          {
-            name: "src/middleware/",
-            type: "Authentication",
-          },
-          {
-            name: "src/models/",
-            type: "Database",
-          },
-        ],
-      };
-    }
-
-    return {
-      content:
-        "Based on the repository structure, this area appears to be handled across the frontend, API layer, and service modules. Ripple would normally trace the relevant files and dependencies to provide a more precise answer. Once the repository analysis API is connected, this response will be generated from the actual codebase.",
-      files: [
-        {
-          name: "client/src/",
-          type: "Frontend",
-        },
-        {
-          name: "src/routes/",
-          type: "API",
-        },
-        {
-          name: "src/services/",
-          type: "Services",
-        },
-      ],
-    };
-  };
-
-  /*
-   * Ask Ripple.
-   */
+  /*Ask Ripple.*/
   const handleAsk = async (text = question) => {
     const trimmedQuestion = text.trim();
 
@@ -253,37 +48,36 @@ Frontend`,
       files: [],
     };
 
-    setMessages((previous) => [
-      ...previous,
-      userMessage,
-    ]);
+    setMessages((previous) => [...previous, userMessage]);
 
     setQuestion("");
     setIsThinking(true);
 
-    /*
-     * Simulate AI processing.
-     *
-     * Later replace this timeout with the real API call.
-     */
-    setTimeout(() => {
-      const answer = getMockAnswer(trimmedQuestion);
+    try {
+      const result = await askRepository(repositoryId, trimmedQuestion);
 
       const assistantMessage = {
         id: Date.now() + 1,
         type: "assistant",
-        content: answer.content,
-        files: answer.files || [],
-        code: answer.code || null,
+        content: result.answer,
+        files: result.sources || [],
+        code: null,
       };
 
-      setMessages((previous) => [
-        ...previous,
-        assistantMessage,
-      ]);
+      setMessages((previous) => [...previous, assistantMessage]);
+    } catch (error) {
+      const assistantMessage = {
+        id: Date.now() + 1,
+        type: "assistant",
+        content: error.message || "Unable to analyze the repository right now.",
+        files: [],
+        code: null,
+      };
 
+      setMessages((previous) => [...previous, assistantMessage]);
+    } finally {
       setIsThinking(false);
-    }, 1000);
+    }
   };
 
   /*
@@ -306,8 +100,7 @@ Frontend`,
       {
         id: Date.now(),
         type: "assistant",
-        content:
-          "Conversation cleared. Ask me anything about your repository.",
+        content: "Conversation cleared. Ask me anything about your repository.",
         files: [],
       },
     ]);
@@ -339,16 +132,11 @@ Frontend`,
         <div>
           <div className="flex items-center gap-2">
             <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
-              <Sparkles
-                size={18}
-                className="text-blue-400"
-              />
+              <Sparkles size={18} className="text-blue-400" />
             </div>
 
             <div>
-              <h1 className="text-2xl font-bold">
-                Ask Ripple
-              </h1>
+              <h1 className="text-2xl font-bold">Ask Ripple</h1>
 
               <p className="text-sm text-gray-500 mt-0.5">
                 Ask questions about your repository.
@@ -392,92 +180,37 @@ Frontend`,
         <div className="flex-1 overflow-y-auto px-5 md:px-10 py-8">
           <div className="max-w-4xl mx-auto space-y-8">
             {/* Welcome state */}
-            {messages.length === 1 &&
-              messages[0].type === "assistant" && (
-                <div className="mb-8">
-                  <div className="text-center max-w-2xl mx-auto">
-                    <div className="mx-auto w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mb-5">
-                      <Sparkles
-                        size={25}
-                        className="text-blue-400"
-                      />
-                    </div>
-
-                    <h2 className="text-2xl font-semibold">
-                      Understand your codebase
-                    </h2>
-
-                    <p className="text-sm text-gray-500 leading-6 mt-3">
-                      Ask Ripple questions about architecture,
-                      dependencies, authentication, APIs, database
-                      usage, or any other part of your repository.
-                    </p>
+            {messages.length === 1 && messages[0].type === "assistant" && (
+              <div className="mb-8">
+                <div className="text-center max-w-2xl mx-auto">
+                  <div className="mx-auto w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mb-5">
+                    <Sparkles size={25} className="text-blue-400" />
                   </div>
 
-                  {/* Suggestions */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-8">
-                    {suggestions.map((suggestion) => {
-                      const Icon = suggestion.icon;
+                  <h2 className="text-2xl font-semibold">
+                    Understand your codebase
+                  </h2>
 
-                      return (
-                        <button
-                          key={suggestion.title}
-                          onClick={() =>
-                            handleAsk(suggestion.title)
-                          }
-                          className="group text-left p-4 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-blue-500/[0.04] hover:border-blue-500/25 transition"
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className="w-9 h-9 shrink-0 rounded-lg bg-white/[0.04] group-hover:bg-blue-500/10 flex items-center justify-center transition">
-                              <Icon
-                                size={17}
-                                className="text-gray-500 group-hover:text-blue-400 transition"
-                              />
-                            </div>
-
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between gap-2">
-                                <p className="text-sm font-medium text-gray-300 group-hover:text-white">
-                                  {suggestion.title}
-                                </p>
-
-                                <ArrowUpRight
-                                  size={14}
-                                  className="text-gray-700 group-hover:text-blue-400 transition"
-                                />
-                              </div>
-
-                              <p className="text-xs text-gray-600 leading-5 mt-1">
-                                {suggestion.description}
-                              </p>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <p className="text-sm text-gray-500 leading-6 mt-3">
+                    Ask Ripple questions about code structure, dependencies,
+                    authentication, APIs, database usage, or any other part of
+                    your repository.
+                  </p>
                 </div>
-              )}
+              </div>
+            )}
 
             {/* Messages */}
             {messages.map((message) => {
               if (message.type === "user") {
                 return (
-                  <div
-                    key={message.id}
-                    className="flex justify-end"
-                  >
+                  <div key={message.id} className="flex justify-end">
                     <div className="max-w-[80%]">
                       <div className="flex justify-end items-center gap-2 mb-2">
-                        <span className="text-[11px] text-gray-600">
-                          You
-                        </span>
+                        <span className="text-[11px] text-gray-600">You</span>
 
                         <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center">
-                          <User
-                            size={13}
-                            className="text-gray-400"
-                          />
+                          <User size={13} className="text-gray-400" />
                         </div>
                       </div>
 
@@ -492,16 +225,10 @@ Frontend`,
               }
 
               return (
-                <div
-                  key={message.id}
-                  className="flex items-start gap-3"
-                >
+                <div key={message.id} className="flex items-start gap-3">
                   {/* Ripple icon */}
                   <div className="w-8 h-8 shrink-0 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
-                    <Sparkles
-                      size={15}
-                      className="text-blue-400"
-                    />
+                    <Sparkles size={15} className="text-blue-400" />
                   </div>
 
                   <div className="max-w-[90%] min-w-0">
@@ -522,50 +249,44 @@ Frontend`,
                       </p>
 
                       {/* File references */}
-                      {message.files &&
-                        message.files.length > 0 && (
-                          <div className="mt-5">
-                            <div className="flex items-center gap-2 mb-3">
-                              <FileCode2
-                                size={14}
-                                className="text-blue-400"
-                              />
+                      {message.files && message.files.length > 0 && (
+                        <div className="mt-5">
+                          <div className="flex items-center gap-2 mb-3">
+                            <FileCode2 size={14} className="text-blue-400" />
 
-                              <span className="text-xs font-medium text-gray-400">
-                                Relevant files
-                              </span>
-                            </div>
-
-                            <div className="space-y-2">
-                              {message.files.map(
-                                (file) => (
-                                  <button
-                                    key={file.name}
-                                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-black/20 border border-white/5 hover:border-blue-500/20 hover:bg-blue-500/[0.03] transition text-left"
-                                  >
-                                    <FileCode2
-                                      size={14}
-                                      className="text-gray-500"
-                                    />
-
-                                    <span className="flex-1 text-xs text-gray-400 font-mono truncate">
-                                      {file.name}
-                                    </span>
-
-                                    <span className="text-[10px] text-gray-700">
-                                      {file.type}
-                                    </span>
-
-                                    <ArrowUpRight
-                                      size={13}
-                                      className="text-gray-700"
-                                    />
-                                  </button>
-                                )
-                              )}
-                            </div>
+                            <span className="text-xs font-medium text-gray-400">
+                              Relevant files
+                            </span>
                           </div>
-                        )}
+
+                          <div className="space-y-2">
+                            {message.files.map((file) => (
+                              <button
+                                key={file.name}
+                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-black/20 border border-white/5 hover:border-blue-500/20 hover:bg-blue-500/[0.03] transition text-left"
+                              >
+                                <FileCode2
+                                  size={14}
+                                  className="text-gray-500"
+                                />
+
+                                <span className="flex-1 text-xs text-gray-400 font-mono truncate">
+                                  {file.name}
+                                </span>
+
+                                <span className="text-[10px] text-gray-700">
+                                  {file.type}
+                                </span>
+
+                                <ArrowUpRight
+                                  size={13}
+                                  className="text-gray-700"
+                                />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Code */}
                       {message.code && (
@@ -584,9 +305,7 @@ Frontend`,
                             </div>
 
                             <button
-                              onClick={() =>
-                                copyCode(message.code)
-                              }
+                              onClick={() => copyCode(message.code)}
                               className="flex items-center gap-1.5 text-[10px] text-gray-600 hover:text-gray-300 transition"
                             >
                               {copiedCode ? (
@@ -618,10 +337,7 @@ Frontend`,
             {isThinking && (
               <div className="flex items-start gap-3">
                 <div className="w-8 h-8 shrink-0 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
-                  <Sparkles
-                    size={15}
-                    className="text-blue-400"
-                  />
+                  <Sparkles size={15} className="text-blue-400" />
                 </div>
 
                 <div>
@@ -636,10 +352,7 @@ Frontend`,
                   </div>
 
                   <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-[#10151c] border border-white/10">
-                    <Loader2
-                      size={14}
-                      className="text-blue-400 animate-spin"
-                    />
+                    <Loader2 size={14} className="text-blue-400 animate-spin" />
 
                     <span className="text-xs text-gray-500">
                       Tracing relevant files...
@@ -658,10 +371,7 @@ Frontend`,
           <div className="max-w-4xl mx-auto">
             {/* Quick hint */}
             <div className="flex items-center gap-2 mb-2 px-1">
-              <Lightbulb
-                size={13}
-                className="text-yellow-500/70"
-              />
+              <Lightbulb size={13} className="text-yellow-500/70" />
 
               <span className="text-[10px] text-gray-600">
                 Ask about architecture, files, dependencies, APIs,
@@ -673,9 +383,7 @@ Frontend`,
             <div className="relative flex items-end bg-[#0c1016] border border-white/10 rounded-xl focus-within:border-blue-500/30 transition">
               <textarea
                 value={question}
-                onChange={(event) =>
-                  setQuestion(event.target.value)
-                }
+                onChange={(event) => setQuestion(event.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Ask Ripple about your repository..."
                 rows={1}
@@ -684,9 +392,7 @@ Frontend`,
 
               <button
                 onClick={() => handleAsk()}
-                disabled={
-                  !question.trim() || isThinking
-                }
+                disabled={!question.trim() || isThinking}
                 className={`absolute right-2 bottom-2 w-9 h-9 rounded-lg flex items-center justify-center transition ${
                   question.trim() && !isThinking
                     ? "bg-blue-500 text-white hover:bg-blue-400"
@@ -695,10 +401,7 @@ Frontend`,
                 title="Send message"
               >
                 {isThinking ? (
-                  <Loader2
-                    size={16}
-                    className="animate-spin"
-                  />
+                  <Loader2 size={16} className="animate-spin" />
                 ) : (
                   <Send size={16} />
                 )}
@@ -710,9 +413,7 @@ Frontend`,
                 Enter to send · Shift + Enter for new line
               </span>
 
-              <span className="text-[10px] text-gray-700">
-                Ripple AI
-              </span>
+              <span className="text-[10px] text-gray-700">Ripple AI</span>
             </div>
           </div>
         </div>

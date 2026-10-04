@@ -23,27 +23,50 @@ export async function createFromZip(file) {
 
   const repository = {
     id: generateRepositoryId(),
+    name: file.originalname.replace(/\.zip$/i, ""),
     source: "zip",
     status: "PROCESSING",
+    progress: 0,
+    stage: "EXTRACTING",
+    coverage: "FULL",
+    warnings: [],
     createdAt: new Date().toISOString(),
   };
 
   createRepository(repository);
 
+  // Start processing without blocking the API response.
+  processZipRepository(repository, file.buffer);
+
+  return repository;
+}
+
+async function processZipRepository(repository, buffer) {
   try {
-    const rootDir = await extractZip(file.buffer, repository.id);
-    const analysis = await analyzeRepository(rootDir);
+    const rootDir = await extractZip(buffer, repository.id);
+
+    const analysis = await analyzeRepository(rootDir, {
+      onProgress: ({ progress, stage }) => {
+        repository.progress = progress;
+        repository.stage = stage;
+      },
+    });
 
     repository.rootDir = rootDir;
     repository.files = analysis.files;
     repository.totalFiles = analysis.statistics.files;
     repository.analysis = analysis;
+    repository.coverage = analysis.analysis.coverage;
+    repository.warnings = analysis.analysis.warnings;
+    repository.progress = 100;
+    repository.stage = "FINALIZING";
     repository.status = "READY";
-
-    return repository;
   } catch (error) {
+    console.error(`Repository analysis failed for ${repository.id}:`, error);
+
     repository.status = "FAILED";
-    throw error;
+    repository.stage = "FINALIZING";
+    repository.warnings = [...(repository.warnings || []), error.message];
   }
 }
 
@@ -61,16 +84,25 @@ export async function createFromGithub(url) {
 
   const repository = {
     id: generateRepositoryId(),
+    name: url.replace(/\/+$/, "").split("/").pop(),
     source: "github",
-    url,
     status: "PROCESSING",
+    progress: 0,
+    stage: "CLONING",
+    coverage: "FULL",
+    warnings: [],
     createdAt: new Date().toISOString(),
   };
-
   createRepository(repository);
 
+  // Start GitHub processing without blocking the API response.
+  processGithubRepository(repository, owner, repo);
+
+  return repository;
+}
+
+async function processGithubRepository(repository, owner, repo) {
   try {
-    // Get repository metadata, including its default branch.
     const metadataResponse = await fetch(
       `https://api.github.com/repos/${owner}/${repo}`,
       {
@@ -87,9 +119,6 @@ export async function createFromGithub(url) {
 
     const metadata = await metadataResponse.json();
 
-    repository.status = "ANALYZING";
-
-    // zipball_url automatically points to the repository's default branch.
     const zipResponse = await fetch(
       `https://github.com/${owner}/${repo}/archive/refs/heads/${encodeURIComponent(
         metadata.default_branch,
@@ -102,19 +131,16 @@ export async function createFromGithub(url) {
 
     const buffer = Buffer.from(await zipResponse.arrayBuffer());
 
-    const rootDir = await extractZip(buffer, repository.id);
-    const analysis = await analyzeRepository(rootDir);
-
-    repository.rootDir = rootDir;
-    repository.files = analysis.files;
-    repository.totalFiles = analysis.statistics.files;
-    repository.analysis = analysis;
-    repository.status = "READY";
-
-    return repository;
+    await processZipRepository(repository, buffer);
   } catch (error) {
+    console.error(
+      `GitHub repository processing failed for ${repository.id}:`,
+      error,
+    );
+
     repository.status = "FAILED";
-    throw error;
+    repository.stage = "FINALIZING";
+    repository.warnings = [...(repository.warnings || []), error.message];
   }
 }
 
@@ -144,6 +170,10 @@ export function getRepositoryStatus(repositoryId) {
   return {
     repositoryId: repository.id,
     status: repository.status,
+    progress: repository.progress,
+    stage: repository.stage,
+    coverage: repository.coverage,
+    warnings: repository.warnings,
   };
 }
 
@@ -206,29 +236,4 @@ export async function getRepositoryFile(repositoryId, fileId) {
     content,
     symbols,
   };
-}
-
-export function getRepositoryGraph(repositoryId) {
-  const repository = getRepository(repositoryId);
-
-  if (!repository) {
-    const error = new Error("Repository not found");
-    error.statusCode = 404;
-    error.code = "REPOSITORY_NOT_FOUND";
-    throw error;
-  }
-
-  if (repository.status !== "READY") {
-    const error = new Error("Repository analysis is not ready");
-    error.statusCode = 409;
-    error.code = "ANALYSIS_NOT_READY";
-    throw error;
-  }
-
-  return (
-    repository.analysis?.graph || {
-      nodes: [],
-      edges: [],
-    }
-  );
 }

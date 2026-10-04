@@ -4,7 +4,6 @@ import Landing from "./pages/Landing";
 import Analysis from "./pages/Analysis";
 import Overview from "./pages/Overview";
 import Files from "./pages/Files";
-import Architecture from "./pages/Architecture";
 import AskRipple from "./pages/AskRipple";
 import Impact from "./pages/Impact";
 import WhatIf from "./pages/WhatIf";
@@ -15,7 +14,6 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-
         {/* Landing Page */}
         <Route path="/" element={<Landing />} />
 
@@ -24,46 +22,23 @@ function App() {
 
         {/* Workspace */}
         <Route path="/workspace/:repositoryId" element={<Workspace />}>
-          
           {/* Default workspace page */}
-          <Route
-            index
-            element={<Navigate to="overview" replace />}
-          />
+          <Route index element={<Navigate to="overview" replace />} />
 
           {/* Workspace Pages */}
           <Route path="overview" element={<Overview />} />
 
           <Route path="files" element={<Files />} />
 
-          <Route
-            path="architecture"
-            element={<Architecture />}
-          />
+          <Route path="ask" element={<AskRipple />} />
 
-          <Route
-            path="ask"
-            element={<AskRipple />}
-          />
+          <Route path="impact" element={<Impact />} />
 
-          <Route
-            path="impact"
-            element={<Impact />}
-          />
-
-          <Route
-            path="what-if"
-            element={<WhatIf />}
-          />
-
+          <Route path="what-if" element={<WhatIf />} />
         </Route>
 
         {/* Unknown URL */}
-        <Route
-          path="*"
-          element={<Navigate to="/" replace />}
-        />
-
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );
