@@ -6,6 +6,7 @@ import {
   getRepositoryFilesController,
   getRepositoryAnalysisController,
   getRepositoryFileController,
+  getRepositoryGraphController,
 } from "../controllers/repository.controller.js";
 import { repositoryUpload } from "../middleware/upload.middleware.js";
 
@@ -16,6 +17,7 @@ router.get("/:repositoryId/status", getRepositoryStatusController);
 router.get("/:repositoryId/files/:fileId", getRepositoryFileController);
 router.get("/:repositoryId/files", getRepositoryFilesController);
 router.get("/:repositoryId/analysis", getRepositoryAnalysisController);
+router.get("/:repositoryId/graph", getRepositoryGraphController);
 router.get("/:repositoryId", getRepository);
 
 export default router;

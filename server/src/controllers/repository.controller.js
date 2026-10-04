@@ -5,11 +5,11 @@ import {
   getRepositoryStatus,
   getRepositoryFiles,
   getRepositoryFile,
+  getRepositoryGraph,
 } from "../services/repository.service.js";
 
 export async function createRepository(req, res, next) {
   console.log("BODY:", req.body);
-  console.log("CONTENT TYPE:", req.headers["content-type"]);
   try {
     if (req.file) {
       const repository = await createFromZip(req.file);
@@ -24,7 +24,7 @@ export async function createRepository(req, res, next) {
     }
 
     if (req.body?.source === "github") {
-      const repository = createFromGithub(req.body.url);
+      const repository = await createFromGithub(req.body.url);
 
       return res.status(201).json({
         success: true,
@@ -123,6 +123,19 @@ export async function getRepositoryFileController(req, res, next) {
     return res.json({
       success: true,
       data: file,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export function getRepositoryGraphController(req, res, next) {
+  try {
+    const graph = getRepositoryGraph(req.params.repositoryId);
+
+    return res.json({
+      success: true,
+      data: graph,
     });
   } catch (error) {
     next(error);
