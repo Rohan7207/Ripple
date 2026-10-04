@@ -1,206 +1,433 @@
+import RippleLogo from "../components/RippleLogo";
 import {
-  FileCode2,
-  FolderTree,
-  Network,
   GitBranch,
+  FileCode2,
+  Boxes,
+  Package,
+  Activity,
   ArrowUpRight,
+  Folder,
+  Code2,
+  Database,
+  Server,
+  Sparkles,
 } from "lucide-react";
 
 function Overview() {
+  const stats = [
+    {
+      label: "Files",
+      value: "128",
+      icon: FileCode2,
+      change: "+12 this analysis",
+    },
+    {
+      label: "Functions",
+      value: "342",
+      icon: Code2,
+      change: "Across 31 files",
+    },
+    {
+      label: "Components",
+      value: "48",
+      icon: Boxes,
+      change: "React components",
+    },
+    {
+      label: "Dependencies",
+      value: "24",
+      icon: Package,
+      change: "18 production",
+    },
+  ];
+
+  const languages = [
+    { name: "JavaScript", percentage: 62 },
+    { name: "CSS", percentage: 18 },
+    { name: "HTML", percentage: 11 },
+    { name: "JSON", percentage: 6 },
+    { name: "Other", percentage: 3 },
+  ];
+
+  const modules = [
+    {
+      name: "src",
+      description: "Main application source code",
+      files: 64,
+      icon: Folder,
+    },
+    {
+      name: "components",
+      description: "Reusable React components",
+      files: 28,
+      icon: Boxes,
+    },
+    {
+      name: "services",
+      description: "API and business logic",
+      files: 17,
+      icon: Server,
+    },
+    {
+      name: "utils",
+      description: "Shared utilities and helpers",
+      files: 12,
+      icon: Activity,
+    },
+  ];
+
   return (
-    <div className="mx-auto max-w-7xl">
+    <div className="max-w-7xl mx-auto space-y-6">
+      {/* Repository Header */}
+      <div className="bg-[#0c1016] border border-white/10 rounded-2xl p-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+              <GitBranch size={24} className="text-blue-400" />
+            </div>
 
-      <div className="mb-8">
+            <div>
+              <div className="flex items-center gap-3">
+                <h1 className="text-xl font-semibold">
+                  ripple-demo
+                </h1>
 
-        <p className="text-sm text-blue-400">
-          Repository overview
-        </p>
+                <span className="px-2.5 py-1 rounded-full text-xs bg-green-500/10 border border-green-500/20 text-green-400">
+                  Analysis Complete
+                </span>
+              </div>
 
-        <h1 className="mt-2 text-3xl font-bold">
-          Understand your codebase
-        </h1>
+              <p className="text-sm text-gray-500 mt-1">
+                github.com/user/ripple-demo
+              </p>
+            </div>
+          </div>
 
-        <p className="mt-2 text-sm text-slate-500">
-          Explore repository structure, architecture and dependencies.
-        </p>
-
+          <div className="text-left md:text-right">
+            <p className="text-xs text-gray-500">
+              Last analyzed
+            </p>
+            <p className="text-sm text-gray-300 mt-1">
+              Just now
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        {stats.map((stat) => {
+          const Icon = stat.icon;
 
-        <Stat
-          icon={FileCode2}
-          label="Files"
-          value="128"
-        />
+          return (
+            <div
+              key={stat.label}
+              className="bg-[#0c1016] border border-white/10 rounded-2xl p-5 hover:border-white/20 transition"
+            >
+              <div className="flex items-center justify-between">
+                <div className="w-10 h-10 rounded-xl bg-white/[0.04] flex items-center justify-center">
+                  <Icon size={19} className="text-gray-400" />
+                </div>
 
-        <Stat
-          icon={FolderTree}
-          label="Directories"
-          value="24"
-        />
+                <ArrowUpRight
+                  size={16}
+                  className="text-gray-600"
+                />
+              </div>
 
-        <Stat
-          icon={Network}
-          label="Dependencies"
-          value="86"
-        />
+              <p className="text-3xl font-bold mt-5">
+                {stat.value}
+              </p>
 
-        <Stat
-          icon={GitBranch}
-          label="Modules"
-          value="17"
-        />
+              <p className="text-sm text-gray-400 mt-1">
+                {stat.label}
+              </p>
 
+              <p className="text-xs text-gray-600 mt-3">
+                {stat.change}
+              </p>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Main cards */}
-      <div className="mt-6 grid gap-6 lg:grid-cols-3">
-
-        <div className="rounded-2xl border border-white/5 bg-[#080b11] p-6 lg:col-span-2">
-
-          <div className="flex items-center justify-between">
-
+      {/* Main Grid */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* Languages */}
+        <div className="xl:col-span-2 bg-[#0c1016] border border-white/10 rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="font-semibold">
-                Repository structure
+                Language Distribution
               </h2>
-
-              <p className="mt-1 text-xs text-slate-600">
-                High-level breakdown
+              <p className="text-xs text-gray-500 mt-1">
+                Languages detected across the repository
               </p>
             </div>
 
-            <button className="text-slate-600 transition hover:text-white">
-              <ArrowUpRight size={18} />
-            </button>
-
+            <Code2 size={20} className="text-gray-500" />
           </div>
 
-          <div className="mt-8 space-y-4">
+          <div className="space-y-5">
+            {languages.map((language) => (
+              <div key={language.name}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-gray-300">
+                    {language.name}
+                  </span>
 
-            <Progress
-              label="JavaScript / JSX"
-              value="68%"
-              width="68%"
-            />
+                  <span className="text-xs text-gray-500">
+                    {language.percentage}%
+                  </span>
+                </div>
 
-            <Progress
-              label="CSS / Tailwind"
-              value="18%"
-              width="18%"
-            />
-
-            <Progress
-              label="JSON"
-              value="8%"
-              width="8%"
-            />
-
-            <Progress
-              label="Other"
-              value="6%"
-              width="6%"
-            />
-
+                <div className="h-2 bg-white/[0.04] rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-500 rounded-full"
+                    style={{
+                      width: `${language.percentage}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
-
         </div>
 
-        <div className="rounded-2xl border border-white/5 bg-[#080b11] p-6">
+        {/* Repository Health */}
+        <div className="bg-[#0c1016] border border-white/10 rounded-2xl p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-9 h-9 rounded-lg bg-green-500/10 flex items-center justify-center">
+              <Activity
+                size={18}
+                className="text-green-400"
+              />
+            </div>
 
-          <h2 className="font-semibold">
-            Quick actions
-          </h2>
-
-          <div className="mt-5 space-y-2">
-
-            <QuickAction
-              icon={Network}
-              title="View architecture"
-            />
-
-            <QuickAction
-              icon={FileCode2}
-              title="Browse files"
-            />
-
-            <QuickAction
-              icon={GitBranch}
-              title="Ask Ripple"
-            />
-
+            <div>
+              <h2 className="font-semibold">
+                Repository Health
+              </h2>
+              <p className="text-xs text-gray-500">
+                Overall analysis
+              </p>
+            </div>
           </div>
 
+          <div className="flex items-center justify-center py-4">
+            <div className="w-32 h-32 rounded-full border-8 border-green-500/20 flex items-center justify-center">
+              <div className="text-center">
+                <p className="text-3xl font-bold text-green-400">
+                  87
+                </p>
+                <p className="text-xs text-gray-500">
+                  / 100
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 text-center">
+            <p className="text-sm font-medium">
+              Good structure
+            </p>
+
+            <p className="text-xs text-gray-600 mt-1">
+              A few areas could be improved
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Architecture */}
+      <div className="bg-[#0c1016] border border-white/10 rounded-2xl p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="font-semibold">
+              Architecture Overview
+            </h2>
+
+            <p className="text-xs text-gray-500 mt-1">
+              High-level structure detected by Ripple
+            </p>
+          </div>
+
+          <NetworkIcon />
         </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <ArchitectureNode
+            icon={Folder}
+            title="Frontend"
+            description="React UI"
+          />
+
+          <ArchitectureArrow />
+
+          <ArchitectureNode
+            icon={Server}
+            title="API Layer"
+            description="REST services"
+          />
+
+          <ArchitectureArrow />
+
+          <ArchitectureNode
+            icon={Database}
+            title="Database"
+            description="Data storage"
+          />
+        </div>
       </div>
 
+      {/* Modules + AI Insights */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {/* Modules */}
+        <div className="bg-[#0c1016] border border-white/10 rounded-2xl p-6">
+          <div className="mb-5">
+            <h2 className="font-semibold">
+              Key Modules
+            </h2>
+
+            <p className="text-xs text-gray-500 mt-1">
+              Important areas of the repository
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            {modules.map((module) => {
+              const Icon = module.icon;
+
+              return (
+                <div
+                  key={module.name}
+                  className="flex items-center gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                    <Icon
+                      size={18}
+                      className="text-blue-400"
+                    />
+                  </div>
+
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">
+                      {module.name}
+                    </p>
+
+                    <p className="text-xs text-gray-600 mt-1">
+                      {module.description}
+                    </p>
+                  </div>
+
+                  <span className="text-xs text-gray-500">
+                    {module.files} files
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* AI Insights */}
+        <div className="bg-[#0c1016] border border-white/10 rounded-2xl p-6">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
+              <Sparkles
+                size={19}
+                className="text-purple-400"
+              />
+            </div>
+
+            <div>
+              <h2 className="font-semibold">
+                Ripple Insights
+              </h2>
+
+              <p className="text-xs text-gray-500 mt-1">
+                AI-generated repository observations
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <Insight
+              title="Centralized API layer"
+              description="Most external communication is handled through a dedicated service layer."
+            />
+
+            <Insight
+              title="Reusable components"
+              description="The frontend contains a strong collection of reusable UI components."
+            />
+
+            <Insight
+              title="Dependency concentration"
+              description="Several core modules depend on a small number of shared utilities."
+            />
+
+            <Insight
+              title="Potential improvement"
+              description="Some modules could be separated further to reduce coupling."
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
-function Stat({ icon: Icon, label, value }) {
+function NetworkIcon() {
   return (
-    <div className="rounded-2xl border border-white/5 bg-[#080b11] p-5">
-
-      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-500/10 text-blue-400">
-        <Icon size={18} />
-      </div>
-
-      <p className="mt-5 text-xs text-slate-600">
-        {label}
-      </p>
-
-      <p className="mt-1 text-2xl font-bold">
-        {value}
-      </p>
-
+    <div className="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center">
+      <GitBranch size={18} className="text-blue-400" />
     </div>
   );
 }
 
-function Progress({ label, value, width }) {
+function ArchitectureNode({
+  icon: Icon,
+  title,
+  description,
+}) {
   return (
-    <div>
-
-      <div className="mb-2 flex justify-between text-xs">
-
-        <span className="text-slate-400">
-          {label}
-        </span>
-
-        <span className="font-mono text-slate-600">
-          {value}
-        </span>
-
+    <div className="bg-white/[0.02] border border-white/10 rounded-xl p-5 flex items-center gap-4">
+      <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
+        <Icon size={18} className="text-blue-400" />
       </div>
 
-      <div className="h-1.5 overflow-hidden rounded-full bg-white/5">
+      <div>
+        <p className="text-sm font-medium">
+          {title}
+        </p>
 
-        <div
-          className="h-full rounded-full bg-blue-500"
-          style={{ width }}
-        />
-
+        <p className="text-xs text-gray-600 mt-1">
+          {description}
+        </p>
       </div>
-
     </div>
   );
 }
 
-function QuickAction({ icon: Icon, title }) {
+function ArchitectureArrow() {
   return (
-    <button className="flex w-full items-center gap-3 rounded-xl border border-white/5 bg-white/[0.02] p-3 text-left transition hover:border-blue-500/20 hover:bg-blue-500/5">
+    <div className="hidden md:flex items-center justify-center text-gray-600">
+      →
+    </div>
+  );
+}
 
-      <Icon size={17} className="text-blue-400" />
-
-      <span className="text-sm">
+function Insight({ title, description }) {
+  return (
+    <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5">
+      <p className="text-sm font-medium text-gray-200">
         {title}
-      </span>
+      </p>
 
-    </button>
+      <p className="text-xs text-gray-500 mt-1.5 leading-5">
+        {description}
+      </p>
+    </div>
   );
 }
 
