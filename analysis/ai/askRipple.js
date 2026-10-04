@@ -2,22 +2,11 @@ import { GroqProvider } from "./groqProvider.js";
 import { retrieveContext } from "../context/contextRetriever.js";
 
 export async function askRipple(analysis, question) {
-  console.log("🔥 ASK RIPPLE FILE LOADED");
   if (!question || !question.trim()) {
     throw new Error("Question is required");
   }
 
   const context = retrieveContext(analysis, question);
-
-  console.log("ASK DEBUG", {
-    analysisFiles: analysis?.files?.length,
-    analysisSymbols: analysis?.symbols?.length,
-    analysisRelationships: analysis?.relationships?.length,
-    contextFiles: context?.files?.length,
-    contextSymbols: context?.symbols?.length,
-    contextRelationships: context?.relationships?.length,
-    contextSnippets: context?.sourceSnippets?.length,
-  });
 
   const provider = new GroqProvider();
 
