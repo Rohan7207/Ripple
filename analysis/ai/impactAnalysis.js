@@ -1,5 +1,6 @@
 import { GroqProvider } from "./groqProvider.js";
 import { retrieveContext } from "../context/contextRetriever.js";
+import { parseAIResponse } from "./aiResponse.js";
 
 export async function analyzeImpact(analysis, target) {
   if (!target || !target.trim()) {
@@ -45,9 +46,18 @@ Return JSON with this structure:
     temperature: 0
   });
 
-  return {
-    target,
-    answer,
-    context
-  };
+ const result = parseAIResponse(answer, {
+  summary: "",
+  affectedFiles: [],
+  affectedSymbols: [],
+  relationships: [],
+  risks: [],
+  confidence: "LOW"
+});
+
+return {
+  target,
+  result,
+  context
+};
 }

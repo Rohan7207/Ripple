@@ -13,7 +13,6 @@ export function retrieveContext(analysis, query = "") {
 
   const normalizedQuery = query.trim().toLowerCase();
 
-  // If there is no query, return the complete deterministic context.
   if (!normalizedQuery) {
     return {
       files: analysis.files || [],
@@ -26,49 +25,75 @@ export function retrieveContext(analysis, query = "") {
     };
   }
 
-  // Find files related to the query.
-  const relevantFiles = (analysis.files || []).filter((file) => {
-    const searchableText = [
-      file.path,
-      file.name,
-      file.language,
-      file.type
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
+  const queryTerms = normalizedQuery
+    .split(/\s+/)
+    .map((term) => term.replace(/[^a-z0-9_./-]/g, ""))
+    .filter((term) => term.length >= 3);
 
-    return searchableText.includes(normalizedQuery);
-  });
+  const matchesQuery = (text) => {
+    if (!text) return false;
 
-  const relevantPaths = new Set(
-    relevantFiles.map((file) => file.path)
-  );
+    const normalizedText = text.toLowerCase();
 
-  // Find symbols belonging to relevant files.
-  const relevantSymbols = (analysis.symbols || []).filter(
-    (symbol) => {
-      const searchableText = [
-        symbol.name,
-        symbol.type,
-        symbol.filePath
+    return queryTerms.some((term) =>
+      normalizedText.includes(term)
+    );
+  };
+
+  // Find files that directly match the query
+  const directlyRelevantFiles = (analysis.files || []).filter(
+    (file) => {
+      return [
+        file.path,
+        file.name,
+        file.language,
+        file.type
       ]
         .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
+        .some(matchesQuery);
+    }
+  );
 
+  // Find symbols that directly match the query
+  const directlyRelevantSymbols = (
+    analysis.symbols || []
+  ).filter((symbol) => {
+    return [
+      symbol.name,
+      symbol.type,
+      symbol.filePath
+    ]
+      .filter(Boolean)
+      .some(matchesQuery);
+  });
+
+  // Include files containing matched symbols
+  const relevantPaths = new Set([
+    ...directlyRelevantFiles.map((file) => file.path),
+    ...directlyRelevantSymbols
+      .map((symbol) => symbol.filePath)
+      .filter(Boolean)
+  ]);
+
+  const relevantFiles = (analysis.files || []).filter(
+    (file) => relevantPaths.has(file.path)
+  );
+
+  // Include symbols belonging to relevant files
+  const relevantSymbols = (analysis.symbols || []).filter(
+    (symbol) => {
       return (
-        searchableText.includes(normalizedQuery) ||
-        relevantPaths.has(symbol.filePath)
+        relevantPaths.has(symbol.filePath) ||
+        directlyRelevantSymbols.includes(symbol)
       );
     }
   );
 
-  // Keep relationships connected to relevant files/symbols.
   const relevantSymbolNames = new Set(
     relevantSymbols.map((symbol) => symbol.name)
   );
 
+  // Include relationships connected to relevant files/symbols
   const relevantRelationships = (
     analysis.relationships || []
   ).filter((relationship) => {
