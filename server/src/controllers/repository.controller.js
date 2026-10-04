@@ -4,9 +4,12 @@ import {
   getRepositoryById,
   getRepositoryStatus,
   getRepositoryFiles,
+  getRepositoryFile,
 } from "../services/repository.service.js";
 
 export async function createRepository(req, res, next) {
+  console.log("BODY:", req.body);
+  console.log("CONTENT TYPE:", req.headers["content-type"]);
   try {
     if (req.file) {
       const repository = await createFromZip(req.file);
@@ -104,6 +107,22 @@ export async function getRepositoryAnalysisController(req, res, next) {
         statistics: repository.analysis?.statistics || {},
         analysis: repository.analysis?.analysis || {},
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getRepositoryFileController(req, res, next) {
+  try {
+    const file = await getRepositoryFile(
+      req.params.repositoryId,
+      req.params.fileId,
+    );
+
+    return res.json({
+      success: true,
+      data: file,
     });
   } catch (error) {
     next(error);

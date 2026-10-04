@@ -25,14 +25,26 @@ function extractRelationships(filePath, language) {
         "classProperties",
         "objectRestSpread",
         "optionalChaining",
-        "dynamicImport"
-      ]
+        "dynamicImport",
+      ],
     });
   } catch (error) {
     return [];
   }
 
   const relationships = [];
+
+  const ignoredCalls = new Set([
+    "Number",
+    "String",
+    "Boolean",
+    "Object",
+    "Array",
+    "Date",
+    "Math",
+    "parseInt",
+    "parseFloat",
+  ]);
 
   function addRelationship(type, from, to, extra = {}) {
     if (!from || !to || from === to) {
@@ -43,7 +55,7 @@ function extractRelationships(filePath, language) {
       type,
       from,
       to,
-      ...extra
+      ...extra,
     });
   }
 
@@ -60,10 +72,8 @@ function extractRelationships(filePath, language) {
       node.type === "VariableDeclarator" &&
       node.id?.type === "Identifier" &&
       node.init &&
-      (
-        node.init.type === "FunctionExpression" ||
-        node.init.type === "ArrowFunctionExpression"
-      )
+      (node.init.type === "FunctionExpression" ||
+        node.init.type === "ArrowFunctionExpression")
     ) {
       return node.id.name;
     }
@@ -89,11 +99,7 @@ function extractRelationships(filePath, language) {
         const source = node.source?.value;
 
         if (source) {
-          addRelationship(
-            "imports",
-            filePath,
-            source
-          );
+          addRelationship("imports", filePath, source);
         }
 
         break;
@@ -101,22 +107,14 @@ function extractRelationships(filePath, language) {
 
       case "ExportNamedDeclaration": {
         if (node.source?.value) {
-          addRelationship(
-            "exports",
-            filePath,
-            node.source.value
-          );
+          addRelationship("exports", filePath, node.source.value);
         }
 
         if (node.declaration) {
           const name = node.declaration.id?.name;
 
           if (name) {
-            addRelationship(
-              "exports",
-              filePath,
-              name
-            );
+            addRelationship("exports", filePath, name);
           }
         }
 
@@ -124,23 +122,16 @@ function extractRelationships(filePath, language) {
       }
 
       case "ExportDefaultDeclaration":
-        addRelationship(
-          "exports",
-          filePath,
-          "default"
-        );
+        addRelationship("exports", filePath, "default");
         break;
 
       case "CallExpression": {
-        if (
-          activeFunction &&
-          node.callee?.type === "Identifier"
-        ) {
-          addRelationship(
-            "calls",
-            activeFunction,
-            node.callee.name
-          );
+        if (activeFunction && node.callee?.type === "Identifier") {
+          const calleeName = node.callee.name;
+
+          if (!ignoredCalls.has(calleeName)) {
+            addRelationship("calls", activeFunction, calleeName);
+          }
         }
 
         break;
@@ -148,11 +139,7 @@ function extractRelationships(filePath, language) {
     }
 
     for (const key of Object.keys(node)) {
-      if (
-        key === "loc" ||
-        key === "start" ||
-        key === "end"
-      ) {
+      if (key === "loc" || key === "start" || key === "end") {
         continue;
       }
 
@@ -162,10 +149,7 @@ function extractRelationships(filePath, language) {
         value.forEach((child) => {
           walk(child, activeFunction);
         });
-      } else if (
-        value &&
-        typeof value === "object"
-      ) {
+      } else if (value && typeof value === "object") {
         walk(value, activeFunction);
       }
     }
