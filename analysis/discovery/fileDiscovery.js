@@ -1,8 +1,8 @@
-const fs = require("fs");
-const path = require("path");
+import fs from "node:fs";
+import path from "node:path";
 
-const { detectLanguage } = require("./languageDetector");
-const { classifyFile } = require("./fileClassifier");
+import { detectLanguage } from "./languageDetector.js";
+import { classifyFile } from "./fileClassifier.js";
 
 const IGNORED_DIRECTORIES = new Set([
   "node_modules",
@@ -15,9 +15,9 @@ const IGNORED_DIRECTORIES = new Set([
   "out"
 ]);
 
-const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2 MB
+const MAX_FILE_SIZE = 2 * 1024 * 1024;
 
-function discoverFiles(repositoryPath) {
+export function discoverFiles(repositoryPath) {
   const files = [];
   const directories = [];
   const warnings = [];
@@ -29,7 +29,7 @@ function discoverFiles(repositoryPath) {
       entries = fs.readdirSync(currentPath, {
         withFileTypes: true
       });
-    } catch (error) {
+    } catch {
       warnings.push(
         `Unable to read directory: ${relativePath || "."}`
       );
@@ -57,11 +57,7 @@ function discoverFiles(repositoryPath) {
           name: entry.name
         });
 
-        walk(
-          absolutePath,
-          entryRelativePath
-        );
-
+        walk(absolutePath, entryRelativePath);
         continue;
       }
 
@@ -73,7 +69,7 @@ function discoverFiles(repositoryPath) {
 
       try {
         stats = fs.statSync(absolutePath);
-      } catch (error) {
+      } catch {
         warnings.push(
           `Unable to inspect file: ${entryRelativePath}`
         );
@@ -109,7 +105,3 @@ function discoverFiles(repositoryPath) {
     warnings
   };
 }
-
-module.exports = {
-  discoverFiles
-};
