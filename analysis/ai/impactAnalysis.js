@@ -2,14 +2,24 @@ import { GroqProvider } from "./groqProvider.js";
 import { retrieveContext } from "../context/contextRetriever.js";
 import { parseAIResponse } from "./aiResponse.js";
 
-export async function analyzeImpact(analysis, target) {
+export async function analyzeImpact(
+  analysis,
+  target
+) {
   if (!target || !target.trim()) {
-    throw new Error("Impact target is required");
+    throw new Error(
+      "Impact target is required"
+    );
   }
 
-  const context = retrieveContext(analysis, target);
+  const context =
+    retrieveContext(
+      analysis,
+      target
+    );
 
-  const provider = new GroqProvider();
+  const provider =
+    new GroqProvider();
 
   const prompt = `
 You are Ripple, a repository impact-analysis assistant.
@@ -21,13 +31,35 @@ REQUESTED CHANGE:
 ${target}
 
 REPOSITORY CONTEXT:
-${JSON.stringify(context, null, 2)}
+${JSON.stringify(
+  context,
+  null,
+  2
+)}
 
 Rules:
-- Never invent files, symbols, dependencies, or relationships.
-- Identify directly affected files/symbols from the evidence.
-- Clearly distinguish confirmed evidence from inference.
-- If evidence is insufficient, say so.
+
+- Deterministic repository evidence is authoritative.
+- Use sourceSnippets, symbols, relationships, and graph edges as evidence.
+- Identify DIRECT impact only when directly connected to the requested target.
+- Identify INDIRECT impact only when a deterministic relationship chain in the
+  provided evidence establishes that connection.
+- Identify RELATED areas only when the repository evidence establishes a
+  meaningful relationship.
+- Do not invent downstream consumers.
+- Do not assume that every file mentioned in the architecture documentation
+  is affected.
+- Do not assume that changing a service automatically requires changing a
+  controller.
+- A controller should only be marked affected when the repository evidence
+  shows that it transforms, validates, reshapes, or otherwise depends on the
+  changed behavior.
+- Never invent files, symbols, dependencies, APIs, or relationships.
+- Clearly distinguish:
+  OBSERVED EVIDENCE,
+  INFERENCE,
+  and
+  UNKNOWN / INSUFFICIENT EVIDENCE.
 - Do not modify or generate code.
 - Keep the result concise and structured.
 
@@ -42,22 +74,30 @@ Return JSON with this structure:
 }
 `;
 
-  const answer = await provider.generate(prompt, {
-    temperature: 0
-  });
+  const answer =
+    await provider.generate(
+      prompt,
+      {
+        temperature: 0
+      }
+    );
 
- const result = parseAIResponse(answer, {
-  summary: "",
-  affectedFiles: [],
-  affectedSymbols: [],
-  relationships: [],
-  risks: [],
-  confidence: "LOW"
-});
+  const result =
+    parseAIResponse(
+      answer,
+      {
+        summary: "",
+        affectedFiles: [],
+        affectedSymbols: [],
+        relationships: [],
+        risks: [],
+        confidence: "LOW"
+      }
+    );
 
-return {
-  target,
-  result,
-  context
-};
+  return {
+    target,
+    result,
+    context
+  };
 }
