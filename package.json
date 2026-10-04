@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "dependencies": {
-    "@babel/parser": "^..."
+    "@babel/parser": "^7.28.4",
+    "groq-sdk": "^1.6.0"
   }
 }
