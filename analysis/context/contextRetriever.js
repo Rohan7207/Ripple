@@ -5,45 +5,73 @@ const MAX_DIRECT_FILES = 3;
 const MAX_RELATED_FILES = 3;
 const MAX_FILES = 6;
 
+const MAX_DIRECT_SYMBOLS = 10;
 const MAX_SYMBOLS = 20;
+
 const MAX_RELATIONSHIPS = 25;
 
 const MAX_SNIPPETS = 4;
-const MAX_SNIPPET_CHARS = 800;
-const MAX_TOTAL_SNIPPET_CHARS = 3200;
+const MAX_SNIPPET_CHARS = 1200;
+const MAX_TOTAL_SNIPPET_CHARS = 4000;
 
 const MAX_GRAPH_NODES = 20;
 const MAX_GRAPH_EDGES = 25;
 
+const MAX_RELATIONSHIP_HOPS = 2;
+
 const STOP_WORDS = new Set([
+  "what",
+  "does",
+  "do",
+  "how",
+  "why",
+  "where",
+  "when",
+  "which",
+  "who",
+  "can",
+  "could",
+  "would",
+  "should",
+  "is",
+  "are",
+  "the",
+  "this",
+  "that",
+  "these",
+  "those",
+  "a",
+  "an",
+  "and",
+  "or",
+  "for",
+  "from",
+  "to",
+  "of",
+  "in",
+  "on",
+  "with",
+  "by",
   "change",
   "changes",
+  "changed",
+  "changing",
   "update",
   "updates",
+  "updated",
   "modify",
-  "delete",
+  "modified",
   "remove",
+  "delete",
   "add",
   "fix",
   "handle",
   "handling",
   "implement",
   "implementation",
-  "make",
-  "using",
-  "with",
-  "the",
-  "this",
-  "that",
-  "for",
-  "from",
-  "into",
-  "to",
-  "of",
-  "in",
-  "on",
-  "and",
-  "or"
+  "return",
+  "returns",
+  "returning"
 ]);
 
 function emptyContext() {
@@ -59,117 +87,90 @@ function emptyContext() {
   };
 }
 
-function normalizeTerms(query) {
-  return query
-    .split(/\s+/)
-    .map((term) =>
-      term
-        .replace(/[^a-z0-9_./-]/g, "")
-        .toLowerCase()
-    )
-    .filter(
-      (term) =>
-        term.length >= 3 &&
-        !STOP_WORDS.has(term)
-    );
-}
-
 /*
- * These aliases are ONLY used for:
- * - file paths
- * - file names
- * - symbol names
+ * Preserve identifier casing.
  *
- * They are NOT used to scan arbitrary source code.
- * This prevents false positives.
+ * Example:
+ * "What does getRepositoryFiles do?"
+ *
+ * produces:
+ *   getRepositoryFiles
+ *
+ * rather than losing camelCase information.
  */
-function getAliasTerms(term) {
-  const aliases = new Set([term]);
+function extractQueryTerms(query) {
+  const tokens =
+    query.match(
+      /[A-Za-z_$][A-Za-z0-9_$./-]*/g
+    ) || [];
 
-  if (term === "authentication") {
-    aliases.add("auth");
-    aliases.add("authenticate");
-    aliases.add("authenticated");
-    aliases.add("login");
-    aliases.add("signin");
-  }
-
-  if (term === "authorization") {
-    aliases.add("auth");
-    aliases.add("authorize");
-    aliases.add("authorized");
-    aliases.add("permission");
-    aliases.add("role");
-  }
-
-  if (term === "jwt") {
-    aliases.add("jsonwebtoken");
-  }
-
-  if (term === "login") {
-    aliases.add("signin");
-    aliases.add("sign-in");
-  }
-
-  if (term === "logout") {
-    aliases.add("signout");
-    aliases.add("sign-out");
-  }
-
-  return [...aliases];
+  return [
+    ...new Set(
+      tokens
+        .map((token) => token.trim())
+        .filter(Boolean)
+        .filter(
+          (token) =>
+            !STOP_WORDS.has(
+              token.toLowerCase()
+            )
+        )
+    )
+  ];
 }
 
-function matchesWholeWord(text, term) {
-  if (!text || !term) {
+function normalize(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+}
+
+function exactMatch(value, term) {
+  return (
+    normalize(value) ===
+    normalize(term)
+  );
+}
+
+function containsMatch(value, term) {
+  const text = normalize(value);
+  const search = normalize(term);
+
+  if (!text || !search) {
     return false;
   }
 
-  const escapedTerm = term.replace(
-    /[.*+?^${}()|[\]\\]/g,
-    "\\$&"
-  );
-
-  const regex = new RegExp(
-    `(^|[^a-z0-9])${escapedTerm}([^a-z0-9]|$)`,
-    "i"
-  );
-
-  return regex.test(String(text));
-}
-
-function scoreValues(values = [], terms = []) {
-  let score = 0;
-
-  for (const value of values) {
-    if (!value) {
-      continue;
-    }
-
-    const text = String(value).toLowerCase();
-
-    for (const term of terms) {
-      if (matchesWholeWord(text, term)) {
-        score += 1;
-      }
-    }
-  }
-
-  return score;
+  return text.includes(search);
 }
 
 function isLowPriorityFile(file) {
-  const filePath = String(
-    file.path || file.name || ""
-  ).toLowerCase();
+  const filePath = normalize(
+    file.path || file.name
+  );
 
   return (
-    filePath.includes("test") ||
-    filePath.includes("__tests__") ||
-    filePath.includes(".spec.") ||
+    filePath.includes("/test") ||
+    filePath.includes("\\test") ||
     filePath.includes(".test.") ||
+    filePath.includes(".spec.") ||
+    filePath.includes("__tests__") ||
     filePath.endsWith(".md") ||
     filePath.includes("/docs/") ||
     filePath.includes("\\docs\\")
+  );
+}
+
+function isImplementationFile(file) {
+  if (!file) {
+    return false;
+  }
+
+  const language =
+    normalize(file.language);
+
+  return (
+    language === "javascript" ||
+    language === "typescript"
   );
 }
 
@@ -197,6 +198,496 @@ function getCodeOnly(content) {
     );
 }
 
+function getLineNumberForText(
+  content,
+  term
+) {
+  if (!content || !term) {
+    return null;
+  }
+
+  const lines =
+    content.split(/\r?\n/);
+
+  const normalizedTerm =
+    normalize(term);
+
+  for (let i = 0; i < lines.length; i += 1) {
+    if (
+      normalize(lines[i]).includes(
+        normalizedTerm
+      )
+    ) {
+      return i + 1;
+    }
+  }
+
+  return null;
+}
+
+function getSymbolLine(symbol) {
+  return (
+    symbol.startLine ||
+    symbol.line ||
+    symbol.loc?.start?.line ||
+    null
+  );
+}
+
+function getSymbolMatchScore(
+  symbol,
+  queryTerms
+) {
+  if (!symbol?.name) {
+    return 0;
+  }
+
+  let score = 0;
+
+  for (const term of queryTerms) {
+    if (
+      exactMatch(
+        symbol.name,
+        term
+      )
+    ) {
+      score += 1000;
+      continue;
+    }
+
+    if (
+      containsMatch(
+        symbol.name,
+        term
+      )
+    ) {
+      score += 100;
+    }
+  }
+
+  return score;
+}
+
+function getFileMatchScore(
+  file,
+  queryTerms
+) {
+  if (!file) {
+    return 0;
+  }
+
+  let score = 0;
+
+  for (const term of queryTerms) {
+    if (
+      exactMatch(
+        file.name,
+        term
+      )
+    ) {
+      score += 800;
+    }
+
+    if (
+      exactMatch(
+        file.path,
+        term
+      )
+    ) {
+      score += 800;
+    }
+
+    if (
+      containsMatch(
+        file.name,
+        term
+      )
+    ) {
+      score += 150;
+    }
+
+    if (
+      containsMatch(
+        file.path,
+        term
+      )
+    ) {
+      score += 150;
+    }
+  }
+
+  return score;
+}
+
+function getSourceMatchScore(
+  code,
+  queryTerms
+) {
+  if (!code) {
+    return 0;
+  }
+
+  let score = 0;
+
+  for (const term of queryTerms) {
+    const escaped =
+      term.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        "\\$&"
+      );
+
+    const regex =
+      new RegExp(
+        `\\b${escaped}\\b`,
+        "i"
+      );
+
+    if (regex.test(code)) {
+      score += 30;
+    }
+  }
+
+  return score;
+}
+
+function getRelevantSymbolNames(
+  symbols
+) {
+  return new Set(
+    symbols
+      .map(
+        (symbol) =>
+          symbol.name
+      )
+      .filter(Boolean)
+  );
+}
+
+/*
+ * Relationship neighbor discovery.
+ *
+ * Starting from the directly relevant files,
+ * follow deterministic relationships for at most
+ * MAX_RELATIONSHIP_HOPS hops.
+ *
+ * This gives us:
+ * - direct dependencies
+ * - indirect dependencies
+ *
+ * without walking the entire repository.
+ */
+function discoverRelatedFiles(
+  relationships,
+  directPaths
+) {
+  const distances =
+    new Map();
+
+  for (const path of directPaths) {
+    distances.set(
+      path,
+      0
+    );
+  }
+
+  let frontier = [
+    ...directPaths
+  ];
+
+  for (
+    let hop = 1;
+    hop <= MAX_RELATIONSHIP_HOPS;
+    hop += 1
+  ) {
+    const nextFrontier =
+      [];
+
+    for (const relationship of relationships) {
+      const from =
+        relationship.fromFilePath;
+
+      const to =
+        relationship.toFilePath;
+
+      if (!from || !to) {
+        continue;
+      }
+
+      for (const currentPath of frontier) {
+        let neighbor = null;
+
+        if (from === currentPath) {
+          neighbor = to;
+        } else if (to === currentPath) {
+          neighbor = from;
+        }
+
+        if (!neighbor) {
+          continue;
+        }
+
+        if (
+          distances.has(
+            neighbor
+          )
+        ) {
+          continue;
+        }
+
+        distances.set(
+          neighbor,
+          hop
+        );
+
+        nextFrontier.push(
+          neighbor
+        );
+      }
+    }
+
+    frontier = [
+      ...new Set(
+        nextFrontier
+      )
+    ];
+
+    if (
+      frontier.length === 0
+    ) {
+      break;
+    }
+  }
+
+  return distances;
+}
+
+function buildSelectedRelationships(
+  relationships,
+  selectedPaths,
+  directPaths,
+  directSymbolNames
+) {
+  const directPathSet =
+    new Set(directPaths);
+
+  const selectedPathSet =
+    new Set(selectedPaths);
+
+  return relationships
+    .filter(
+      (relationship) => {
+        const fromPath =
+          relationship.fromFilePath;
+
+        const toPath =
+          relationship.toFilePath;
+
+        const touchesSelected =
+          (
+            fromPath &&
+            selectedPathSet.has(
+              fromPath
+            )
+          ) ||
+          (
+            toPath &&
+            selectedPathSet.has(
+              toPath
+            )
+          );
+
+        if (!touchesSelected) {
+          return false;
+        }
+
+        const directConnection =
+          (
+            fromPath &&
+            directPathSet.has(
+              fromPath
+            )
+          ) ||
+          (
+            toPath &&
+            directPathSet.has(
+              toPath
+            )
+          );
+
+        const symbolConnection =
+          (
+            relationship.from &&
+            directSymbolNames.has(
+              relationship.from
+            )
+          ) ||
+          (
+            relationship.to &&
+            directSymbolNames.has(
+              relationship.to
+            )
+          );
+
+        return (
+          directConnection ||
+          symbolConnection
+        );
+      }
+    )
+    .slice(
+      0,
+      MAX_RELATIONSHIPS
+    );
+}
+
+function selectSourceSnippet(
+  file,
+  selectedSymbols,
+  queryTerms
+) {
+  if (
+    !file?.absolutePath ||
+    !fs.existsSync(
+      file.absolutePath
+    )
+  ) {
+    return null;
+  }
+
+  try {
+    const rawContent =
+      fs.readFileSync(
+        file.absolutePath,
+        "utf8"
+      );
+
+    if (!rawContent.trim()) {
+      return null;
+    }
+
+    const sanitized =
+      sanitizeSecrets(
+        rawContent
+      );
+
+    const lines =
+      sanitized.split(/\r?\n/);
+
+    const fileSymbols =
+      selectedSymbols.filter(
+        (symbol) =>
+          symbol.filePath ===
+          file.path
+      );
+
+    let centerLine = null;
+
+    /*
+     * First preference:
+     * actual symbol location.
+     */
+    for (const symbol of fileSymbols) {
+      const line =
+        getSymbolLine(symbol);
+
+      if (
+        Number.isInteger(line) &&
+        line > 0
+      ) {
+        centerLine = line;
+        break;
+      }
+    }
+
+    /*
+     * Fallback:
+     * search the actual implementation source
+     * for the exact requested identifier.
+     */
+    if (!centerLine) {
+      const codeOnly =
+        getCodeOnly(
+          sanitized
+        );
+
+      for (const term of queryTerms) {
+        const line =
+          getLineNumberForText(
+            codeOnly,
+            term
+          );
+
+        if (line) {
+          centerLine = line;
+          break;
+        }
+      }
+    }
+
+    /*
+     * Final fallback for a related file:
+     * first portion only.
+     */
+    if (!centerLine) {
+      const snippet =
+        sanitized.slice(
+          0,
+          MAX_SNIPPET_CHARS
+        );
+
+      if (!snippet.trim()) {
+        return null;
+      }
+
+      return {
+        filePath: file.path,
+        content: snippet
+      };
+    }
+
+    const startLine =
+      Math.max(
+        1,
+        centerLine - 5
+      );
+
+    const endLine =
+      Math.min(
+        lines.length,
+        centerLine + 20
+      );
+
+    const numberedLines =
+      lines
+        .slice(
+          startLine - 1,
+          endLine
+        )
+        .map(
+          (line, index) =>
+            `${startLine + index} | ${line}`
+        )
+        .join("\n");
+
+    const snippet =
+      numberedLines.slice(
+        0,
+        MAX_SNIPPET_CHARS
+      );
+
+    if (!snippet.trim()) {
+      return null;
+    }
+
+    return {
+      filePath: file.path,
+      content: snippet
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function retrieveContext(
   analysis,
   query = ""
@@ -206,58 +697,76 @@ export function retrieveContext(
   }
 
   const normalizedQuery =
-    query.trim().toLowerCase();
+    query.trim();
 
   if (!normalizedQuery) {
     return emptyContext();
   }
 
   const queryTerms =
-    normalizeTerms(normalizedQuery);
+    extractQueryTerms(
+      normalizedQuery
+    );
 
-  if (queryTerms.length === 0) {
+  if (
+    queryTerms.length === 0
+  ) {
     return emptyContext();
   }
 
   // --------------------------------------------------
-  // 1. Build aliases for paths / symbols only
+  // 1. Exact symbol discovery
   // --------------------------------------------------
 
-  const aliasTerms = [
-    ...new Set(
-      queryTerms.flatMap(getAliasTerms)
-    )
-  ];
+  const rankedSymbols =
+    (analysis.symbols || [])
+      .map((symbol) => ({
+        symbol,
+        score:
+          getSymbolMatchScore(
+            symbol,
+            queryTerms
+          )
+      }))
+      .filter(
+        (entry) =>
+          entry.score > 0
+      )
+      .sort(
+        (a, b) =>
+          b.score - a.score
+      );
+
+  const directSymbols =
+    rankedSymbols
+      .slice(
+        0,
+        MAX_DIRECT_SYMBOLS
+      )
+      .map(
+        (entry) =>
+          entry.symbol
+      );
+
+  const directSymbolNames =
+    getRelevantSymbolNames(
+      directSymbols
+    );
 
   // --------------------------------------------------
-  // 2. Find DIRECT implementation candidates
+  // 2. Rank implementation files
   // --------------------------------------------------
 
   const rankedFiles =
     (analysis.files || [])
       .map((file) => {
-        let score = 0;
-
-        const pathValues = [
-          file.path,
-          file.name
-        ];
-
-        // Exact requested terms in path/name
-        score +=
-          scoreValues(
-            pathValues,
+        let score =
+          getFileMatchScore(
+            file,
             queryTerms
-          ) * 30;
+          );
 
-        // Aliases only in path/name
-        score +=
-          scoreValues(
-            pathValues,
-            aliasTerms
-          ) * 10;
-
-        // Symbols belonging to this file
+        // Exact symbol ownership is strong evidence.
         const fileSymbols =
           (analysis.symbols || [])
             .filter(
@@ -266,39 +775,23 @@ export function retrieveContext(
                 file.path
             );
 
-        // Exact requested terms in symbols
-        score +=
-          scoreValues(
-            fileSymbols.map(
-              (symbol) =>
-                symbol.name
-            ),
-            queryTerms
-          ) * 25;
-
-        // Aliases in symbols
-        score +=
-          scoreValues(
-            fileSymbols.map(
-              (symbol) =>
-                symbol.name
-            ),
-            aliasTerms
-          ) * 8;
+        for (const symbol of fileSymbols) {
+          score +=
+            getSymbolMatchScore(
+              symbol,
+              queryTerms
+            );
+        }
 
         /*
-         * Search SOURCE CODE only for the user's
-         * original terms.
-         *
-         * Do NOT search aliases here.
-         *
-         * Example:
-         * "JWT authentication"
-         *
-         * "auth" appearing in App.jsx should NOT
-         * automatically make App.jsx relevant.
+         * Only inspect source for implementation files.
+         * Do not use arbitrary prose in docs/tests as
+         * implementation evidence.
          */
         if (
+          isImplementationFile(
+            file
+          ) &&
           file.absolutePath &&
           fs.existsSync(
             file.absolutePath
@@ -312,23 +805,32 @@ export function retrieveContext(
               );
 
             const codeOnly =
-              getCodeOnly(rawContent);
+              getCodeOnly(
+                rawContent
+              );
 
             score +=
-              scoreValues(
-                [codeOnly],
+              getSourceMatchScore(
+                codeOnly,
                 queryTerms
-              ) * 15;
+              );
           } catch {
-            // Ignore unreadable files
+            // Ignore unreadable files.
           }
         }
 
-        // Strong penalty for docs/tests
+        /*
+         * Documentation and tests can still be returned
+         * if they are reached through a real relationship,
+         * but they should not win direct implementation
+         * selection.
+         */
         if (
-          isLowPriorityFile(file)
+          isLowPriorityFile(
+            file
+          )
         ) {
-          score -= 50;
+          score -= 250;
         }
 
         return {
@@ -338,7 +840,7 @@ export function retrieveContext(
       })
       .filter(
         (entry) =>
-          entry.score >= 15
+          entry.score > 0
       )
       .sort(
         (a, b) =>
@@ -357,12 +859,62 @@ export function retrieveContext(
       );
 
   /*
-   * IMPORTANT:
-   * If no implementation file has strong
-   * evidence, do not force unrelated files
-   * into the context.
+   * If an exact symbol was found, make sure its file
+   * is always represented in direct files.
    */
-  if (directFiles.length === 0) {
+  const directPathSet =
+    new Set(
+      directFiles
+        .map(
+          (file) =>
+            file.path
+        )
+        .filter(Boolean)
+    );
+
+  for (const symbol of directSymbols) {
+    if (
+      !symbol.filePath ||
+      directPathSet.has(
+        symbol.filePath
+      )
+    ) {
+      continue;
+    }
+
+    const file =
+      (analysis.files || [])
+        .find(
+          (candidate) =>
+            candidate.path ===
+            symbol.filePath
+        );
+
+    if (!file) {
+      continue;
+    }
+
+    if (
+      directFiles.length <
+      MAX_DIRECT_FILES
+    ) {
+      directFiles.push(
+        file
+      );
+
+      directPathSet.add(
+        file.path
+      );
+    }
+  }
+
+  /*
+   * No direct evidence means no invented context.
+   */
+  if (
+    directFiles.length === 0 &&
+    directSymbols.length === 0
+  ) {
     return emptyContext();
   }
 
@@ -380,137 +932,39 @@ export function retrieveContext(
         .filter(Boolean)
     );
 
+  for (const symbol of directSymbols) {
+    if (symbol.filePath) {
+      directPaths.add(
+        symbol.filePath
+      );
+    }
+  }
+
   // --------------------------------------------------
-  // 4. Direct symbols
+  // 4. Deterministic relationship traversal
   // --------------------------------------------------
 
-  const directSymbols =
-    (analysis.symbols || [])
-      .map((symbol) => ({
-        symbol,
-        score:
-          scoreValues(
-            [symbol.name],
-            queryTerms
-          ) * 30 +
-          scoreValues(
-            [
-              symbol.name,
-              symbol.filePath
-            ],
-            aliasTerms
-          ) * 8
-      }))
+  const relationshipDistances =
+    discoverRelatedFiles(
+      analysis.relationships || [],
+      directPaths
+    );
+
+  const relatedCandidates =
+    [...relationshipDistances.entries()]
       .filter(
-        (entry) =>
-          entry.score > 0 &&
-          directPaths.has(
-            entry.symbol.filePath
+        ([filePath, distance]) =>
+          distance > 0 &&
+          !directPaths.has(
+            filePath
           )
       )
       .sort(
-        (a, b) =>
-          b.score - a.score
-      )
-      .slice(
-        0,
-        10
-      )
-      .map(
-        (entry) =>
-          entry.symbol
-      );
-
-  const directSymbolNames =
-    new Set(
-      directSymbols
-        .map(
-          (symbol) =>
-            symbol.name
-        )
-        .filter(Boolean)
-    );
-
-  // --------------------------------------------------
-  // 5. Find closely related files through
-  //    deterministic relationships ONLY
-  // --------------------------------------------------
-
-  const relatedScores =
-    new Map();
-
-  for (const relationship of
-    analysis.relationships || []) {
-    const fromPath =
-      relationship.fromFilePath;
-
-    const toPath =
-      relationship.toFilePath;
-
-    let relatedPath = null;
-    let score = 0;
-
-    if (
-      directPaths.has(fromPath) &&
-      toPath &&
-      !directPaths.has(toPath)
-    ) {
-      relatedPath = toPath;
-      score += 20;
-    }
-
-    if (
-      directPaths.has(toPath) &&
-      fromPath &&
-      !directPaths.has(fromPath)
-    ) {
-      relatedPath = fromPath;
-      score += 20;
-    }
-
-    if (!relatedPath) {
-      continue;
-    }
-
-    if (
-      directSymbolNames.has(
-        relationship.from
-      )
-    ) {
-      score += 10;
-    }
-
-    if (
-      directSymbolNames.has(
-        relationship.to
-      )
-    ) {
-      score += 10;
-    }
-
-    const existing =
-      relatedScores.get(
-        relatedPath
-      ) || 0;
-
-    relatedScores.set(
-      relatedPath,
-      Math.max(
-        existing,
-        score
-      )
-    );
-  }
-
-  const relatedPaths =
-    [...relatedScores.entries()]
-      .filter(
-        ([, score]) =>
-          score >= 20
-      )
-      .sort(
-        (a, b) =>
-          b[1] - a[1]
+        (a, b) => {
+          return (
+            a[1] - b[1]
+          );
+        }
       )
       .slice(
         0,
@@ -521,14 +975,10 @@ export function retrieveContext(
           filePath
       );
 
-  // --------------------------------------------------
-  // 6. Final files
-  // --------------------------------------------------
-
   const selectedPathSet =
     new Set([
       ...directPaths,
-      ...relatedPaths
+      ...relatedCandidates
     ]);
 
   const selectedFiles =
@@ -539,19 +989,49 @@ export function retrieveContext(
             file.path
           )
       )
+      .sort(
+        (a, b) => {
+          const aDirect =
+            directPaths.has(
+              a.path
+            );
+
+          const bDirect =
+            directPaths.has(
+              b.path
+            );
+
+          if (
+            aDirect &&
+            !bDirect
+          ) {
+            return -1;
+          }
+
+          if (
+            !aDirect &&
+            bDirect
+          ) {
+            return 1;
+          }
+
+          return 0;
+        }
+      )
       .slice(
         0,
         MAX_FILES
       );
 
   // --------------------------------------------------
-  // 7. Symbols from selected files
+  // 5. Relevant symbols
   // --------------------------------------------------
 
   const selectedSymbols =
     (analysis.symbols || [])
       .filter(
         (symbol) =>
+          symbol.filePath &&
           selectedPathSet.has(
             symbol.filePath
           )
@@ -582,7 +1062,22 @@ export function retrieveContext(
             return 1;
           }
 
-          return 0;
+          const aQueryScore =
+            getSymbolMatchScore(
+              a,
+              queryTerms
+            );
+
+          const bQueryScore =
+            getSymbolMatchScore(
+              b,
+              queryTerms
+            );
+
+          return (
+            bQueryScore -
+            aQueryScore
+          );
         }
       )
       .slice(
@@ -591,65 +1086,62 @@ export function retrieveContext(
       );
 
   const selectedSymbolNames =
-    new Set(
+    getRelevantSymbolNames(
       selectedSymbols
-        .map(
-          (symbol) =>
-            symbol.name
-        )
-        .filter(Boolean)
     );
 
   // --------------------------------------------------
-  // 8. Relationships connecting selected files
+  // 6. Relevant relationships
   // --------------------------------------------------
 
   const selectedRelationships =
-    (analysis.relationships || [])
-      .filter(
-        (relationship) => {
-          const fileMatch =
-            (
-              relationship.fromFilePath &&
-              selectedPathSet.has(
-                relationship.fromFilePath
-              )
-            ) ||
-            (
-              relationship.toFilePath &&
-              selectedPathSet.has(
-                relationship.toFilePath
-              )
-            );
-
-          const symbolMatch =
-            selectedSymbolNames.has(
-              relationship.from
-            ) ||
-            selectedSymbolNames.has(
-              relationship.to
-            );
-
-          return (
-            fileMatch ||
-            symbolMatch
-          );
-        }
-      )
-      .slice(
-        0,
-        MAX_RELATIONSHIPS
-      );
+    buildSelectedRelationships(
+      analysis.relationships || [],
+      selectedPathSet,
+      directPaths,
+      directSymbolNames
+    );
 
   // --------------------------------------------------
-  // 9. Focused source snippets
+  // 7. Focused source snippets
   // --------------------------------------------------
 
   const sourceSnippets = [];
 
   let totalSnippetChars = 0;
 
-  for (const file of selectedFiles) {
+  const orderedFiles =
+    [...selectedFiles].sort(
+      (a, b) => {
+        const aDirect =
+          directPaths.has(
+            a.path
+          );
+
+        const bDirect =
+          directPaths.has(
+            b.path
+          );
+
+        if (
+          aDirect &&
+          !bDirect
+        ) {
+          return -1;
+        }
+
+        if (
+          !aDirect &&
+          bDirect
+        ) {
+          return 1;
+        }
+
+        return 0;
+      }
+    );
+
+  for (const file of orderedFiles) {
     if (
       sourceSnippets.length >=
       MAX_SNIPPETS
@@ -657,127 +1149,35 @@ export function retrieveContext(
       break;
     }
 
-    if (
-      !file.absolutePath ||
-      !fs.existsSync(
-        file.absolutePath
-      )
-    ) {
+    const snippet =
+      selectSourceSnippet(
+        file,
+        selectedSymbols,
+        queryTerms
+      );
+
+    if (!snippet) {
       continue;
     }
 
-    try {
-      const rawContent =
-        fs.readFileSync(
-          file.absolutePath,
-          "utf8"
-        );
-
-      const sanitizedContent =
-        sanitizeSecrets(
-          rawContent
-        );
-
-      const lines =
-        sanitizedContent.split(
-          /\r?\n/
-        );
-
-      const fileSymbols =
-        selectedSymbols.filter(
-          (symbol) =>
-            symbol.filePath ===
-            file.path
-        );
-
-      let snippet = "";
-
-      const symbolLines =
-        fileSymbols
-          .map(
-            (symbol) =>
-              symbol.startLine ||
-              symbol.line ||
-              symbol.loc?.start?.line
-          )
-          .filter(
-            (line) =>
-              Number.isInteger(
-                line
-              ) &&
-              line > 0
-          );
-
-      if (
-        symbolLines.length > 0
-      ) {
-        const startLine =
-          Math.max(
-            1,
-            Math.min(
-              ...symbolLines
-            ) - 4
-          );
-
-        const endLine =
-          Math.min(
-            lines.length,
-            Math.max(
-              ...symbolLines
-            ) + 12
-          );
-
-        snippet =
-          lines
-            .slice(
-              startLine - 1,
-              endLine
-            )
-            .join("\n");
-      }
-
-      if (!snippet.trim()) {
-        snippet =
-          sanitizedContent.slice(
-            0,
-            MAX_SNIPPET_CHARS
-          );
-      }
-
-      snippet =
-        snippet.slice(
-          0,
-          MAX_SNIPPET_CHARS
-        );
-
-      if (!snippet.trim()) {
-        continue;
-      }
-
-      if (
-        totalSnippetChars +
-          snippet.length >
-        MAX_TOTAL_SNIPPET_CHARS
-      ) {
-        break;
-      }
-
-      sourceSnippets.push({
-        filePath:
-          file.path,
-        content:
-          snippet
-      });
-
-      totalSnippetChars +=
-        snippet.length;
-    } catch {
-      // Ignore source retrieval failure
+    if (
+      totalSnippetChars +
+        snippet.content.length >
+      MAX_TOTAL_SNIPPET_CHARS
+    ) {
+      break;
     }
+
+    sourceSnippets.push(
+      snippet
+    );
+
+    totalSnippetChars +=
+      snippet.content.length;
   }
 
   // --------------------------------------------------
-  // 10. Small graph
+  // 8. Small graph limited to selected paths
   // --------------------------------------------------
 
   const graph =
@@ -834,7 +1234,7 @@ export function retrieveContext(
       );
 
   // --------------------------------------------------
-  // 11. Compact AI context
+  // 9. Compact context returned to AI
   // --------------------------------------------------
 
   return {
@@ -862,9 +1262,9 @@ export function retrieveContext(
           filePath:
             symbol.filePath,
           line:
-            symbol.startLine ||
-            symbol.line ||
-            symbol.loc?.start?.line
+            getSymbolLine(
+              symbol
+            )
         })
       ),
 
