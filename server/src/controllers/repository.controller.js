@@ -5,11 +5,13 @@ import {
   getRepositoryStatus,
   getRepositoryFiles,
   getRepositoryFile,
-  getRepositoryGraph,
 } from "../services/repository.service.js";
 
+import { askRipple } from "../../../analysis/ai/askRipple.js";
+import { analyzeImpact } from "../../../analysis/ai/impactAnalysis.js";
+import { analyzeWhatIf } from "../../../analysis/ai/whatIf.js";
+
 export async function createRepository(req, res, next) {
-  console.log("BODY:", req.body);
   try {
     if (req.file) {
       const repository = await createFromZip(req.file);
@@ -54,10 +56,17 @@ export async function getRepository(req, res, next) {
       success: true,
       data: {
         repositoryId: repository.id,
+        name: repository.name,
         source: repository.source,
         status: repository.status,
         createdAt: repository.createdAt,
         totalFiles: repository.totalFiles ?? 0,
+
+        // Repository analysis
+        files: repository.files ?? [],
+        analysis: repository.analysis ?? null,
+        coverage: repository.coverage ?? null,
+        warnings: repository.warnings ?? [],
       },
     });
   } catch (error) {
@@ -129,13 +138,45 @@ export async function getRepositoryFileController(req, res, next) {
   }
 }
 
-export function getRepositoryGraphController(req, res, next) {
+export async function askRippleController(req, res, next) {
   try {
-    const graph = getRepositoryGraph(req.params.repositoryId);
+    const repository = getRepositoryById(req.params.repositoryId);
+
+    const result = await askRipple(repository.analysis, req.body?.question);
 
     return res.json({
       success: true,
-      data: graph,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function analyzeImpactController(req, res, next) {
+  try {
+    const repository = getRepositoryById(req.params.repositoryId);
+
+    const result = await analyzeImpact(repository.analysis, req.body?.target);
+
+    return res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function analyzeWhatIfController(req, res, next) {
+  try {
+    const repository = getRepositoryById(req.params.repositoryId);
+
+    const result = await analyzeWhatIf(repository.analysis, req.body?.scenario);
+
+    return res.json({
+      success: true,
+      data: result,
     });
   } catch (error) {
     next(error);

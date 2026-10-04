@@ -1,5 +1,5 @@
-import RippleLogo from "../components/RippleLogo";
 import { useState } from "react";
+import { useParams } from "react-router-dom";
 import {
   GitBranch,
   Search,
@@ -7,938 +7,597 @@ import {
   AlertCircle,
   CheckCircle2,
   FileCode2,
-  ArrowDown,
   ArrowRight,
-  ChevronRight,
-  Network,
   RefreshCw,
   Zap,
+  Network,
+  Loader2,
 } from "lucide-react";
 
+import { analyzeRepositoryImpact } from "../lib/api";
+
 function Impact() {
-  const [selectedFile, setSelectedFile] =
-    useState("authController.js");
+  const { repositoryId } = useParams();
 
+  const [target, setTarget] = useState("");
   const [search, setSearch] = useState("");
+  const [impact, setImpact] = useState(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [error, setError] = useState("");
 
-  /*
-   * Demo impact data.
-   *
-   * Later this will come from:
-   *
-   * POST /api/repositories/:repositoryId/impact
-   */
-  const impactData = {
-    "authController.js": {
-      path: "src/controllers/authController.js",
-      description:
-        "Handles authentication requests and coordinates the authentication service.",
-      severity: "High",
-      severityColor: "red",
-      direct: 3,
-      indirect: 4,
-      total: 7,
-      affected: [
-        {
-          name: "authService.js",
-          path: "src/services/authService.js",
-          type: "Direct",
-          severity: "High",
-        },
-        {
-          name: "userRoutes.js",
-          path: "src/routes/userRoutes.js",
-          type: "Direct",
-          severity: "High",
-        },
-        {
-          name: "auth.js",
-          path: "src/middleware/auth.js",
-          type: "Direct",
-          severity: "High",
-        },
-        {
-          name: "userModel.js",
-          path: "src/models/userModel.js",
-          type: "Indirect",
-          severity: "Medium",
-        },
-        {
-          name: "profileController.js",
-          path: "src/controllers/profileController.js",
-          type: "Indirect",
-          severity: "Medium",
-        },
-        {
-          name: "dashboard.jsx",
-          path: "client/src/pages/dashboard.jsx",
-          type: "Indirect",
-          severity: "Low",
-        },
-        {
-          name: "settings.jsx",
-          path: "client/src/pages/settings.jsx",
-          type: "Indirect",
-          severity: "Low",
-        },
-      ],
-    },
+  const handleAnalyze = async (event) => {
+    event?.preventDefault();
 
-    "authService.js": {
-      path: "src/services/authService.js",
-      description:
-        "Contains the core authentication and token validation logic.",
-      severity: "High",
-      severityColor: "red",
-      direct: 2,
-      indirect: 5,
-      total: 7,
-      affected: [
-        {
-          name: "authController.js",
-          path: "src/controllers/authController.js",
-          type: "Direct",
-          severity: "High",
-        },
-        {
-          name: "auth.js",
-          path: "src/middleware/auth.js",
-          type: "Direct",
-          severity: "High",
-        },
-        {
-          name: "userModel.js",
-          path: "src/models/userModel.js",
-          type: "Indirect",
-          severity: "Medium",
-        },
-        {
-          name: "userRoutes.js",
-          path: "src/routes/userRoutes.js",
-          type: "Indirect",
-          severity: "Medium",
-        },
-        {
-          name: "profileController.js",
-          path: "src/controllers/profileController.js",
-          type: "Indirect",
-          severity: "Medium",
-        },
-        {
-          name: "dashboard.jsx",
-          path: "client/src/pages/dashboard.jsx",
-          type: "Indirect",
-          severity: "Low",
-        },
-        {
-          name: "login.jsx",
-          path: "client/src/pages/login.jsx",
-          type: "Indirect",
-          severity: "Low",
-        },
-      ],
-    },
+    const trimmedTarget = target.trim();
 
-    "userModel.js": {
-      path: "src/models/userModel.js",
-      description:
-        "Defines the user data model used throughout the authentication and profile system.",
-      severity: "Medium",
-      severityColor: "yellow",
-      direct: 2,
-      indirect: 3,
-      total: 5,
-      affected: [
-        {
-          name: "authService.js",
-          path: "src/services/authService.js",
-          type: "Direct",
-          severity: "Medium",
-        },
-        {
-          name: "profileService.js",
-          path: "src/services/profileService.js",
-          type: "Direct",
-          severity: "Medium",
-        },
-        {
-          name: "authController.js",
-          path: "src/controllers/authController.js",
-          type: "Indirect",
-          severity: "Low",
-        },
-        {
-          name: "profileController.js",
-          path: "src/controllers/profileController.js",
-          type: "Indirect",
-          severity: "Low",
-        },
-        {
-          name: "dashboard.jsx",
-          path: "client/src/pages/dashboard.jsx",
-          type: "Indirect",
-          severity: "Low",
-        },
-      ],
-    },
-
-    "userRoutes.js": {
-      path: "src/routes/userRoutes.js",
-      description:
-        "Defines API endpoints related to user operations and authentication.",
-      severity: "Medium",
-      severityColor: "yellow",
-      direct: 2,
-      indirect: 2,
-      total: 4,
-      affected: [
-        {
-          name: "authController.js",
-          path: "src/controllers/authController.js",
-          type: "Direct",
-          severity: "Medium",
-        },
-        {
-          name: "profileController.js",
-          path: "src/controllers/profileController.js",
-          type: "Direct",
-          severity: "Medium",
-        },
-        {
-          name: "authService.js",
-          path: "src/services/authService.js",
-          type: "Indirect",
-          severity: "Low",
-        },
-        {
-          name: "userModel.js",
-          path: "src/models/userModel.js",
-          type: "Indirect",
-          severity: "Low",
-        },
-      ],
-    },
-
-    "database.js": {
-      path: "src/config/database.js",
-      description:
-        "Initializes and manages the application's database connection.",
-      severity: "High",
-      severityColor: "red",
-      direct: 3,
-      indirect: 6,
-      total: 9,
-      affected: [
-        {
-          name: "userModel.js",
-          path: "src/models/userModel.js",
-          type: "Direct",
-          severity: "High",
-        },
-        {
-          name: "productModel.js",
-          path: "src/models/productModel.js",
-          type: "Direct",
-          severity: "High",
-        },
-        {
-          name: "orderModel.js",
-          path: "src/models/orderModel.js",
-          type: "Direct",
-          severity: "High",
-        },
-        {
-          name: "authService.js",
-          path: "src/services/authService.js",
-          type: "Indirect",
-          severity: "Medium",
-        },
-        {
-          name: "productService.js",
-          path: "src/services/productService.js",
-          type: "Indirect",
-          severity: "Medium",
-        },
-        {
-          name: "orderService.js",
-          path: "src/services/orderService.js",
-          type: "Indirect",
-          severity: "Medium",
-        },
-      ],
-    },
-  };
-
-  const files = Object.keys(impactData);
-
-  const currentImpact =
-    impactData[selectedFile];
-
-  /*
-   * Filter files using search.
-   */
-  const filteredFiles = files.filter((file) =>
-    file.toLowerCase().includes(search.toLowerCase())
-  );
-
-  /*
-   * Severity styles.
-   */
-  const getSeverityStyles = (severity) => {
-    if (severity === "High") {
-      return {
-        bg: "bg-red-500/10",
-        border: "border-red-500/20",
-        text: "text-red-400",
-        dot: "bg-red-400",
-      };
+    if (!trimmedTarget || isAnalyzing) {
+      return;
     }
 
-    if (severity === "Medium") {
-      return {
-        bg: "bg-yellow-500/10",
-        border: "border-yellow-500/20",
-        text: "text-yellow-400",
-        dot: "bg-yellow-400",
-      };
-    }
+    setIsAnalyzing(true);
+    setError("");
+    setImpact(null);
+    setSearch("");
 
-    return {
-      bg: "bg-green-500/10",
-      border: "border-green-500/20",
-      text: "text-green-400",
-      dot: "bg-green-400",
-    };
+    try {
+      const result = await analyzeRepositoryImpact(repositoryId, trimmedTarget);
+
+      console.log("IMPACT RESPONSE:", result);
+      setImpact(result);
+    } catch (error) {
+      setError(error.message || "Unable to analyze repository impact.");
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
-  const severityStyles = getSeverityStyles(
-    currentImpact.severity
-  );
+  const handleReset = () => {
+    setTarget("");
+    setSearch("");
+    setImpact(null);
+    setError("");
+  };
+
+  const result = impact?.result;
+
+  const affectedFiles = Array.isArray(result?.affectedFiles)
+    ? result.affectedFiles
+    : [];
+
+  const affectedSymbols = Array.isArray(result?.affectedSymbols)
+    ? result.affectedSymbols
+    : [];
+
+  const relationships = Array.isArray(result?.relationships)
+    ? result.relationships
+    : [];
+
+  const risks = Array.isArray(result?.risks) ? result.risks : [];
+
+  const filteredFiles = affectedFiles.filter((file) => {
+    const text =
+      typeof file === "string"
+        ? file
+        : `${file?.path || ""} ${file?.filePath || ""} ${
+            file?.file || ""
+          } ${file?.name || ""}`;
+
+    return text.toLowerCase().includes(search.toLowerCase());
+  });
 
   return (
-    <div className="max-w-[1600px] mx-auto h-[calc(100vh-10rem)] min-h-[650px] flex flex-col">
+    <div className="max-w-[1300px] mx-auto min-h-[calc(100vh-10rem)] pb-8">
       {/* =====================================================
           HEADER
       ====================================================== */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-5">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center">
-              <GitBranch
-                size={18}
-                className="text-orange-400"
-              />
-            </div>
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center">
+            <GitBranch size={18} className="text-orange-400" />
+          </div>
 
-            <div>
-              <h1 className="text-2xl font-bold">
-                Impact Analysis
-              </h1>
+          <div>
+            <h1 className="text-2xl font-bold">Impact Analysis</h1>
 
-              <p className="text-sm text-gray-500 mt-0.5">
-                Understand what could be affected by a code change.
-              </p>
-            </div>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Understand what could be affected by a code change.
+            </p>
           </div>
         </div>
 
-        <button
-          onClick={() =>
-            setSelectedFile("authController.js")
-          }
-          className="flex items-center gap-2 px-3 py-2 rounded-lg border border-white/10 bg-[#0c1016] text-gray-500 hover:text-white hover:border-white/20 transition text-sm"
-        >
-          <RefreshCw size={14} />
-          Reset Analysis
-        </button>
+        {impact && (
+          <button
+            onClick={handleReset}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg border border-white/10 bg-[#0c1016] text-gray-500 hover:text-white hover:border-white/20 transition text-sm"
+          >
+            <RefreshCw size={14} />
+            New Analysis
+          </button>
+        )}
       </div>
 
       {/* =====================================================
-          MAIN CONTENT
+          TARGET INPUT
       ====================================================== */}
-      <div className="flex-1 min-h-0 grid grid-cols-1 xl:grid-cols-[260px_1fr_320px] gap-5">
-        {/* ===================================================
-            FILE SELECTOR
-        ==================================================== */}
-        <div className="bg-[#0c1016] border border-white/10 rounded-2xl overflow-hidden flex flex-col">
-          {/* Header */}
-          <div className="p-4 border-b border-white/10">
-            <p className="text-xs text-gray-500 uppercase tracking-wider">
-              Select file
-            </p>
+      <form
+        onSubmit={handleAnalyze}
+        className="bg-[#0c1016] border border-white/10 rounded-2xl p-4 mb-5"
+      >
+        <div className="flex items-center gap-2 mb-3">
+          <Zap size={15} className="text-orange-400" />
 
-            <p className="text-xs text-gray-600 mt-1">
-              Analyze downstream impact
-            </p>
-
-            {/* Search */}
-            <div className="mt-4 flex items-center gap-2 bg-white/[0.03] border border-white/10 rounded-lg px-3 py-2">
-              <Search
-                size={14}
-                className="text-gray-600"
-              />
-
-              <input
-                value={search}
-                onChange={(event) =>
-                  setSearch(event.target.value)
-                }
-                placeholder="Search files..."
-                className="bg-transparent outline-none text-xs text-gray-300 placeholder-gray-700 w-full"
-              />
-            </div>
-          </div>
-
-          {/* File list */}
-          <div className="flex-1 overflow-y-auto p-2">
-            {filteredFiles.map((file) => {
-              const data = impactData[file];
-
-              const active =
-                selectedFile === file;
-
-              const styles = getSeverityStyles(
-                data.severity
-              );
-
-              return (
-                <button
-                  key={file}
-                  onClick={() =>
-                    setSelectedFile(file)
-                  }
-                  className={`w-full text-left p-3 rounded-xl mb-1 transition ${
-                    active
-                      ? "bg-blue-500/10 border border-blue-500/20"
-                      : "border border-transparent hover:bg-white/[0.03] hover:border-white/5"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                        active
-                          ? "bg-blue-500/10"
-                          : "bg-white/[0.03]"
-                      }`}
-                    >
-                      <FileCode2
-                        size={15}
-                        className={
-                          active
-                            ? "text-blue-400"
-                            : "text-gray-600"
-                        }
-                      />
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <p
-                        className={`text-xs font-medium truncate ${
-                          active
-                            ? "text-blue-300"
-                            : "text-gray-400"
-                        }`}
-                      >
-                        {file}
-                      </p>
-
-                      <p className="text-[10px] text-gray-700 mt-1 truncate">
-                        {data.path}
-                      </p>
-                    </div>
-
-                    <div
-                      className={`w-2 h-2 rounded-full ${styles.dot}`}
-                    />
-                  </div>
-                </button>
-              );
-            })}
-
-            {filteredFiles.length === 0 && (
-              <div className="p-5 text-center">
-                <Search
-                  size={20}
-                  className="mx-auto text-gray-700"
-                />
-
-                <p className="text-xs text-gray-600 mt-2">
-                  No files found
-                </p>
-              </div>
-            )}
-          </div>
+          <p className="text-xs font-medium text-gray-400">
+            What do you want to change?
+          </p>
         </div>
 
-        {/* ===================================================
-            IMPACT GRAPH
-        ==================================================== */}
-        <div className="bg-[#0c1016] border border-white/10 rounded-2xl overflow-hidden flex flex-col">
-          {/* Graph header */}
-          <div className="h-[68px] shrink-0 px-5 border-b border-white/10 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold">
-                Dependency Impact
-              </p>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <input
+            value={target}
+            onChange={(event) => setTarget(event.target.value)}
+            placeholder="e.g. Change authentication flow"
+            disabled={isAnalyzing}
+            className="flex-1 bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-sm text-gray-300 placeholder-gray-700 outline-none focus:border-orange-500/30 transition disabled:opacity-50"
+          />
 
-              <p className="text-xs text-gray-600 mt-1">
-                {currentImpact.path}
-              </p>
-            </div>
+          <button
+            type="submit"
+            disabled={!target.trim() || isAnalyzing}
+            className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-300 hover:bg-orange-500/15 transition text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {isAnalyzing ? (
+              <>
+                <Loader2 size={15} className="animate-spin" />
+                Analyzing
+              </>
+            ) : (
+              <>
+                Analyze Impact
+                <ArrowRight size={15} />
+              </>
+            )}
+          </button>
+        </div>
 
-            <div
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${severityStyles.bg} ${severityStyles.border}`}
-            >
-              <div
-                className={`w-2 h-2 rounded-full ${severityStyles.dot}`}
-              />
+        {error && (
+          <div className="mt-3 flex items-start gap-2 p-3 rounded-lg bg-red-500/5 border border-red-500/10">
+            <AlertCircle size={15} className="text-red-400 mt-0.5 shrink-0" />
 
-              <span
-                className={`text-xs font-medium ${severityStyles.text}`}
-              >
-                {currentImpact.severity} Impact
-              </span>
-            </div>
+            <p className="text-xs text-red-300">{error}</p>
           </div>
+        )}
+      </form>
 
-          {/* Graph */}
-          <div className="flex-1 relative overflow-hidden">
-            {/* Grid */}
-            <div
-              className="absolute inset-0 opacity-30"
-              style={{
-                backgroundImage:
-                  "radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)",
-                backgroundSize: "24px 24px",
-              }}
+      {/* =====================================================
+          EMPTY STATE
+      ====================================================== */}
+      {!impact && !isAnalyzing && !error && (
+        <div className="min-h-[430px] flex items-center justify-center bg-[#0c1016] border border-white/10 rounded-2xl">
+          <div className="text-center max-w-md px-6">
+            <div className="w-12 h-12 mx-auto rounded-2xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center">
+              <GitBranch size={22} className="text-orange-400" />
+            </div>
+
+            <h2 className="text-sm font-semibold text-gray-300 mt-4">
+              Analyze a proposed change
+            </h2>
+
+            <p className="text-xs text-gray-600 leading-5 mt-2">
+              Describe the change you are considering and Ripple will identify
+              affected files, relationships, risks, and confidence using
+              repository evidence.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================
+          LOADING
+      ====================================================== */}
+      {isAnalyzing && (
+        <div className="min-h-[430px] flex items-center justify-center bg-[#0c1016] border border-white/10 rounded-2xl">
+          <div className="text-center">
+            <Loader2
+              size={25}
+              className="mx-auto text-orange-400 animate-spin"
             />
 
-            <div className="relative h-full min-h-[580px] overflow-auto">
-              <div className="relative min-w-[700px] min-h-[620px]">
-                {/* =================================================
-                    SVG CONNECTIONS
-                ================================================== */}
-                <svg
-                  className="absolute inset-0 w-full h-full pointer-events-none"
-                  viewBox="0 0 700 620"
-                >
-                  <defs>
-                    <marker
-                      id="impact-arrow"
-                      markerWidth="8"
-                      markerHeight="8"
-                      refX="7"
-                      refY="3"
-                      orient="auto"
-                    >
-                      <path
-                        d="M0,0 L0,6 L7,3 z"
-                        fill="#60a5fa"
-                      />
-                    </marker>
-                  </defs>
+            <p className="text-sm text-gray-400 mt-4">
+              Analyzing repository impact...
+            </p>
 
-                  {/* Main file → direct dependencies */}
-                  <line
-                    x1="220"
-                    y1="300"
-                    x2="380"
-                    y2="170"
-                    stroke="#60a5fa"
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    markerEnd="url(#impact-arrow)"
-                  />
-
-                  <line
-                    x1="220"
-                    y1="300"
-                    x2="380"
-                    y2="300"
-                    stroke="#60a5fa"
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    markerEnd="url(#impact-arrow)"
-                  />
-
-                  <line
-                    x1="220"
-                    y1="300"
-                    x2="380"
-                    y2="430"
-                    stroke="#60a5fa"
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    markerEnd="url(#impact-arrow)"
-                  />
-
-                  {/* Direct → indirect */}
-                  <line
-                    x1="530"
-                    y1="170"
-                    x2="610"
-                    y2="240"
-                    stroke="#6b7280"
-                    strokeWidth="2"
-                    strokeDasharray="6 6"
-                    markerEnd="url(#impact-arrow)"
-                  />
-
-                  <line
-                    x1="530"
-                    y1="300"
-                    x2="610"
-                    y2="300"
-                    stroke="#6b7280"
-                    strokeWidth="2"
-                    strokeDasharray="6 6"
-                    markerEnd="url(#impact-arrow)"
-                  />
-
-                  <line
-                    x1="530"
-                    y1="430"
-                    x2="610"
-                    y2="360"
-                    stroke="#6b7280"
-                    strokeWidth="2"
-                    strokeDasharray="6 6"
-                    markerEnd="url(#impact-arrow)"
-                  />
-                </svg>
-
-                {/* =================================================
-                    CENTER SELECTED FILE
-                ================================================== */}
-                <div className="absolute left-[60px] top-[245px] w-[165px]">
-                  <div className="relative rounded-xl bg-blue-500/10 border border-blue-500/40 p-4 shadow-[0_0_35px_rgba(59,130,246,0.12)]">
-                    <div className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-blue-400 border-4 border-[#0c1016]" />
-
-                    <div className="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center mb-3">
-                      <FileCode2
-                        size={17}
-                        className="text-blue-400"
-                      />
-                    </div>
-
-                    <p className="text-sm font-semibold text-white truncate">
-                      {selectedFile}
-                    </p>
-
-                    <p className="text-[10px] text-gray-500 mt-1">
-                      Selected file
-                    </p>
-
-                    <div className="mt-3 pt-3 border-t border-blue-500/10">
-                      <span className="text-[10px] text-blue-400">
-                        Source
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* =================================================
-                    DIRECT IMPACT NODES
-                ================================================== */}
-                {currentImpact.affected
-                  .filter(
-                    (item) => item.type === "Direct"
-                  )
-                  .slice(0, 3)
-                  .map((item, index) => {
-                    const positions = [
-                      "top-[110px]",
-                      "top-[240px]",
-                      "top-[370px]",
-                    ];
-
-                    return (
-                      <ImpactNode
-                        key={item.name}
-                        item={item}
-                        position={`absolute left-[380px] ${positions[index]}`}
-                        direct
-                      />
-                    );
-                  })}
-
-                {/* =================================================
-                    INDIRECT IMPACT NODES
-                ================================================== */}
-                {currentImpact.affected
-                  .filter(
-                    (item) =>
-                      item.type === "Indirect"
-                  )
-                  .slice(0, 3)
-                  .map((item, index) => {
-                    const positions = [
-                      "top-[185px]",
-                      "top-[300px]",
-                      "top-[415px]",
-                    ];
-
-                    return (
-                      <ImpactNode
-                        key={item.name}
-                        item={item}
-                        position={`absolute left-[570px] ${positions[index]}`}
-                        indirect
-                      />
-                    );
-                  })}
-              </div>
-            </div>
-
-            {/* Legend */}
-            <div className="absolute bottom-4 left-4 flex items-center gap-4 bg-[#080b10]/90 backdrop-blur border border-white/10 rounded-lg px-3 py-2">
-              <span className="flex items-center gap-2 text-[10px] text-gray-500">
-                <span className="w-2 h-2 rounded-full bg-blue-400" />
-                Selected
-              </span>
-
-              <span className="flex items-center gap-2 text-[10px] text-gray-500">
-                <span className="w-2 h-2 rounded-full bg-orange-400" />
-                Direct
-              </span>
-
-              <span className="flex items-center gap-2 text-[10px] text-gray-500">
-                <span className="w-2 h-2 rounded-full bg-gray-500" />
-                Indirect
-              </span>
-            </div>
+            <p className="text-xs text-gray-700 mt-1">
+              Following deterministic repository relationships.
+            </p>
           </div>
         </div>
+      )}
 
-        {/* ===================================================
-            IMPACT DETAILS
-        ==================================================== */}
-        <div className="bg-[#0c1016] border border-white/10 rounded-2xl overflow-y-auto">
-          {/* Summary */}
-          <div className="p-5 border-b border-white/10">
-            <div className="flex items-center gap-3">
-              <div
-                className={`w-10 h-10 rounded-xl ${severityStyles.bg} flex items-center justify-center`}
-              >
-                {currentImpact.severity ===
-                "High" ? (
-                  <AlertTriangle
-                    size={19}
-                    className="text-red-400"
-                  />
-                ) : (
-                  <AlertCircle
-                    size={19}
-                    className="text-yellow-400"
-                  />
-                )}
+      {/* =====================================================
+          RESULTS
+      ====================================================== */}
+      {impact && result && !isAnalyzing && (
+        <div className="space-y-5">
+          {/* =================================================
+              SUMMARY
+          ================================================== */}
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_220px] gap-5">
+            <div className="bg-[#0c1016] border border-white/10 rounded-2xl p-5">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-orange-500/10 flex items-center justify-center shrink-0">
+                  <Zap size={17} className="text-orange-400" />
+                </div>
+
+                <div className="min-w-0">
+                  <p className="text-[10px] text-gray-600 uppercase tracking-wider">
+                    Requested change
+                  </p>
+
+                  <p className="text-sm text-gray-300 mt-1 break-words">
+                    {impact.target}
+                  </p>
+                </div>
               </div>
 
-              <div>
-                <p className="text-xs text-gray-500">
-                  Impact level
+              <div className="mt-5 pt-4 border-t border-white/5">
+                <p className="text-[10px] text-gray-600 uppercase tracking-wider">
+                  Impact summary
                 </p>
 
-                <h2
-                  className={`text-lg font-semibold ${severityStyles.text}`}
-                >
-                  {currentImpact.severity}
-                </h2>
+                <p className="text-sm text-gray-400 leading-6 mt-2">
+                  {result.summary || "No impact summary was returned."}
+                </p>
               </div>
             </div>
 
-            <p className="text-xs text-gray-500 leading-5 mt-4">
-              {currentImpact.description}
-            </p>
+            {/* Confidence */}
+            <ConfidenceCard confidence={result.confidence} />
           </div>
 
-          {/* Stats */}
-          <div className="p-5 border-b border-white/10">
-            <p className="text-xs text-gray-500 uppercase tracking-wider mb-4">
-              Impact summary
-            </p>
+          {/* =================================================
+              AFFECTED FILES
+          ================================================== */}
+          <section className="bg-[#0c1016] border border-white/10 rounded-2xl overflow-hidden">
+            <div className="p-5 border-b border-white/10">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <p className="text-xs font-medium text-gray-400">
+                    Affected Files
+                  </p>
 
-            <div className="grid grid-cols-3 gap-2">
-              <ImpactStat
-                value={currentImpact.direct}
-                label="Direct"
-                color="orange"
-              />
+                  <p className="text-[11px] text-gray-700 mt-1">
+                    Files identified from repository evidence.
+                  </p>
+                </div>
 
-              <ImpactStat
-                value={currentImpact.indirect}
-                label="Indirect"
-                color="yellow"
-              />
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] text-gray-600">
+                    {affectedFiles.length} files
+                  </span>
 
-              <ImpactStat
-                value={currentImpact.total}
-                label="Total"
-                color="blue"
-              />
-            </div>
-          </div>
+                  {affectedFiles.length > 0 && (
+                    <div className="flex items-center gap-2 bg-white/[0.03] border border-white/10 rounded-lg px-2.5 py-1.5">
+                      <Search size={12} className="text-gray-700" />
 
-          {/* Affected files */}
-          <div className="p-5">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-xs text-gray-500 uppercase tracking-wider">
-                Affected files
-              </p>
-
-              <span className="text-[10px] text-gray-700">
-                {currentImpact.total} files
-              </span>
+                      <input
+                        value={search}
+                        onChange={(event) => setSearch(event.target.value)}
+                        placeholder="Filter..."
+                        className="w-24 bg-transparent outline-none text-[10px] text-gray-400 placeholder-gray-700"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              {currentImpact.affected.map(
-                (item) => {
-                  const styles =
-                    getSeverityStyles(
-                      item.severity
-                    );
+            {filteredFiles.length > 0 ? (
+              <div className="divide-y divide-white/5">
+                {filteredFiles.map((file, index) => {
+                  const normalized = normalizeAffectedFile(file);
 
                   return (
                     <div
-                      key={`${item.name}-${item.type}`}
-                      className="group flex items-center gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/5 hover:border-white/10 transition"
+                      key={`${normalized.path}-${index}`}
+                      className="flex items-center gap-3 px-5 py-3.5 hover:bg-white/[0.02] transition"
                     >
-                      <FileCode2
-                        size={14}
-                        className="text-gray-600 shrink-0"
-                      />
-
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-gray-400 truncate group-hover:text-gray-200">
-                          {item.name}
-                        </p>
-
-                        <p className="text-[10px] text-gray-700 truncate mt-1">
-                          {item.type} impact
-                        </p>
+                      <div className="w-8 h-8 rounded-lg bg-white/[0.03] flex items-center justify-center shrink-0">
+                        <FileCode2 size={14} className="text-gray-500" />
                       </div>
 
-                      <div
-                        className={`w-2 h-2 rounded-full ${styles.dot}`}
-                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-gray-300 truncate">
+                          {normalized.name}
+                        </p>
 
-                      <ChevronRight
-                        size={13}
-                        className="text-gray-700"
-                      />
+                        {normalized.path &&
+                          normalized.path !== normalized.name && (
+                            <p className="text-[10px] text-gray-700 truncate mt-1">
+                              {normalized.path}
+                            </p>
+                          )}
+                      </div>
+
+                      {normalized.impact && (
+                        <span
+                          className={`shrink-0 text-[10px] px-2 py-1 rounded-md ${
+                            normalized.impact.toUpperCase() === "DIRECT"
+                              ? "text-orange-300 bg-orange-500/10 border border-orange-500/10"
+                              : "text-gray-500 bg-white/[0.03] border border-white/5"
+                          }`}
+                        >
+                          {normalized.impact}
+                        </span>
+                      )}
                     </div>
                   );
-                }
-              )}
-            </div>
-          </div>
-
-          {/* Recommendation */}
-          <div className="mx-5 mb-5 p-4 rounded-xl bg-orange-500/5 border border-orange-500/10">
-            <div className="flex items-start gap-3">
-              <Zap
-                size={16}
-                className="text-orange-400 mt-0.5 shrink-0"
-              />
-
-              <div>
-                <p className="text-xs font-medium text-orange-300">
-                  Recommendation
-                </p>
-
-                <p className="text-[11px] text-gray-600 leading-5 mt-1">
-                  Review the directly affected files before
-                  making this change. Indirect dependencies may
-                  also require regression testing.
-                </p>
+                })}
               </div>
-            </div>
+            ) : (
+              <EmptySection message="No affected files identified." />
+            )}
+          </section>
+
+          {/* =================================================
+              RELATIONSHIPS + RISKS
+          ================================================== */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {/* Relationships */}
+            <section className="bg-[#0c1016] border border-white/10 rounded-2xl overflow-hidden">
+              <div className="p-5 border-b border-white/10">
+                <div className="flex items-center gap-2">
+                  <Network size={15} className="text-blue-400" />
+
+                  <p className="text-xs font-medium text-gray-400">
+                    Relationships
+                  </p>
+
+                  <span className="text-[10px] text-gray-700 ml-auto">
+                    {relationships.length}
+                  </span>
+                </div>
+              </div>
+
+              {relationships.length > 0 ? (
+                <div className="p-3 space-y-1">
+                  {relationships.map((relationship, index) => (
+                    <RelationshipRow key={index} relationship={relationship} />
+                  ))}
+                </div>
+              ) : (
+                <EmptySection message="No relevant relationships identified." />
+              )}
+            </section>
+
+            {/* Risks */}
+            <section className="bg-[#0c1016] border border-white/10 rounded-2xl overflow-hidden">
+              <div className="p-5 border-b border-white/10">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle size={15} className="text-yellow-400" />
+
+                  <p className="text-xs font-medium text-gray-400">Risks</p>
+
+                  <span className="text-[10px] text-gray-700 ml-auto">
+                    {risks.length}
+                  </span>
+                </div>
+              </div>
+
+              {risks.length > 0 ? (
+                <div className="p-4 space-y-2">
+                  {risks.map((risk, index) => (
+                    <div
+                      key={index}
+                      className="flex items-start gap-3 p-3 rounded-lg bg-yellow-500/[0.03] border border-yellow-500/10"
+                    >
+                      <AlertTriangle
+                        size={13}
+                        className="text-yellow-500 mt-0.5 shrink-0"
+                      />
+
+                      <p className="text-[11px] text-gray-500 leading-5">
+                        {formatValue(risk)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <EmptySection message="No specific risks identified." />
+              )}
+            </section>
           </div>
+
+          {/* =================================================
+              SYMBOLS
+          ================================================== */}
+          {affectedSymbols.length > 0 && (
+            <section className="bg-[#0c1016] border border-white/10 rounded-2xl overflow-hidden">
+              <div className="p-5 border-b border-white/10">
+                <div className="flex items-center gap-2">
+                  <FileCode2 size={15} className="text-purple-400" />
+
+                  <p className="text-xs font-medium text-gray-400">
+                    Affected Symbols
+                  </p>
+
+                  <span className="text-[10px] text-gray-700 ml-auto">
+                    {affectedSymbols.length}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 p-4">
+                {affectedSymbols.map((symbol, index) => (
+                  <div
+                    key={`${symbol?.name || "symbol"}-${index}`}
+                    className="p-3 rounded-lg bg-white/[0.02] border border-white/5"
+                  >
+                    <p className="text-xs text-gray-300 truncate">
+                      {symbol?.name || formatValue(symbol)}
+                    </p>
+
+                    {symbol?.filePath && (
+                      <p className="text-[10px] text-gray-700 truncate mt-1">
+                        {symbol.filePath}
+                        {symbol.line ? `:${symbol.line}` : ""}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 }
 
 /*
- * Impact graph node.
+ * Confidence card.
  */
-function ImpactNode({
-  item,
-  position,
-  direct,
-  indirect,
-}) {
-  return (
-    <div
-      className={`${position} w-[150px]`}
-    >
-      <div
-        className={`rounded-xl p-3 border transition-all ${
-          direct
-            ? "bg-orange-500/5 border-orange-500/25 shadow-[0_0_20px_rgba(249,115,22,0.06)]"
-            : "bg-white/[0.02] border-white/10"
-        }`}
-      >
-        <div className="flex items-center gap-2">
-          <div
-            className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-              direct
-                ? "bg-orange-500/10"
-                : "bg-white/[0.04]"
-            }`}
-          >
-            <FileCode2
-              size={14}
-              className={
-                direct
-                  ? "text-orange-400"
-                  : "text-gray-500"
-              }
-            />
-          </div>
+function ConfidenceCard({ confidence }) {
+  const normalized = String(confidence || "LOW").toUpperCase();
 
-          <div className="min-w-0">
-            <p className="text-[11px] font-medium text-gray-300 truncate">
-              {item.name}
-            </p>
-
-            <p className="text-[9px] text-gray-600 mt-0.5">
-              {direct ? "Direct" : "Indirect"}
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/*
- * Impact statistic card.
- */
-function ImpactStat({
-  value,
-  label,
-  color,
-}) {
-  const colors = {
-    orange: "text-orange-400",
-    yellow: "text-yellow-400",
-    blue: "text-blue-400",
+  const config = {
+    HIGH: {
+      label: "High",
+      text: "text-green-400",
+      bg: "bg-green-500/10",
+      border: "border-green-500/20",
+      icon: CheckCircle2,
+    },
+    MEDIUM: {
+      label: "Medium",
+      text: "text-yellow-400",
+      bg: "bg-yellow-500/10",
+      border: "border-yellow-500/20",
+      icon: AlertCircle,
+    },
+    LOW: {
+      label: "Low",
+      text: "text-orange-400",
+      bg: "bg-orange-500/10",
+      border: "border-orange-500/20",
+      icon: AlertTriangle,
+    },
   };
 
+  const current = config[normalized] || config.LOW;
+  const Icon = current.icon;
+
   return (
-    <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 text-center">
-      <p
-        className={`text-xl font-bold ${colors[color]}`}
-      >
-        {value}
+    <div
+      className={`bg-[#0c1016] border border-white/10 rounded-2xl p-5 flex flex-col justify-between`}
+    >
+      <p className="text-[10px] text-gray-600 uppercase tracking-wider">
+        Analysis confidence
       </p>
 
-      <p className="text-[10px] text-gray-600 mt-1">
-        {label}
-      </p>
+      <div className="flex items-center gap-3 mt-5">
+        <div
+          className={`w-10 h-10 rounded-xl ${current.bg} ${current.border} border flex items-center justify-center`}
+        >
+          <Icon size={18} className={current.text} />
+        </div>
+
+        <div>
+          <p className="text-[10px] text-gray-600">Repository evidence</p>
+
+          <p className={`text-lg font-semibold ${current.text}`}>
+            {current.label}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/*
+ * Relationship row.
+ */
+function RelationshipRow({ relationship }) {
+  if (typeof relationship === "string") {
+    return (
+      <div className="p-3 rounded-lg bg-white/[0.02] border border-white/5">
+        <p className="text-[11px] text-gray-400">{relationship}</p>
+      </div>
+    );
+  }
+
+  const from = relationship?.from || relationship?.source || "Unknown";
+
+  const to = relationship?.to || relationship?.target || "Unknown";
+
+  const type = relationship?.type || relationship?.relationship || "";
+
+  return (
+    <div className="p-3 rounded-lg bg-white/[0.02] border border-white/5">
+      <div className="flex items-center gap-2 min-w-0">
+        <span className="text-[11px] text-gray-300 truncate">{from}</span>
+
+        <ArrowRight size={12} className="text-gray-700 shrink-0" />
+
+        <span className="text-[11px] text-gray-300 truncate">{to}</span>
+      </div>
+
+      {type && <p className="text-[9px] text-gray-600 mt-1">{type}</p>}
+    </div>
+  );
+}
+
+/*
+ * Normalize different possible AI affected-file shapes.
+ */
+function normalizeAffectedFile(file) {
+  if (typeof file === "string") {
+    return {
+      name: file.split("/").pop() || file,
+      path: file,
+      impact: "",
+    };
+  }
+
+  const path = file?.path || file?.filePath || file?.file || "";
+
+  return {
+    name: file?.name || path.split("/").pop() || "Unknown file",
+    path,
+    impact: file?.impact || file?.type || "",
+  };
+}
+
+/*
+ * Format AI values safely.
+ */
+function formatValue(value) {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (value == null) {
+    return "";
+  }
+
+  if (typeof value === "object") {
+    return (
+      value.message ||
+      value.description ||
+      value.summary ||
+      JSON.stringify(value)
+    );
+  }
+
+  return String(value);
+}
+
+/*
+ * Empty section state.
+ */
+function EmptySection({ message }) {
+  return (
+    <div className="p-6 text-center">
+      <p className="text-[11px] text-gray-700">{message}</p>
     </div>
   );
 }

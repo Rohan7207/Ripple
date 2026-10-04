@@ -1,19 +1,20 @@
-import { NavLink, Outlet, useParams } from "react-router-dom";
+import { NavLink, Outlet, useParams, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   FolderTree,
-  Network,
   MessageSquare,
   GitBranch,
   WandSparkles,
   ChevronLeft,
-  Search,
 } from "lucide-react";
+import { getRepository } from "../lib/api";
 
 import RippleLogo from "./RippleLogo";
 
 function Workspace() {
   const { repositoryId } = useParams();
+  const navigate = useNavigate();
 
   const navigation = [
     {
@@ -26,11 +27,7 @@ function Workspace() {
       path: "files",
       icon: FolderTree,
     },
-    {
-      name: "Architecture",
-      path: "architecture",
-      icon: Network,
-    },
+
     {
       name: "Ask Ripple",
       path: "ask",
@@ -48,14 +45,21 @@ function Workspace() {
     },
   ];
 
-  const repoName = repositoryId || "demo-repository";
+  const [repository, setRepository] = useState(null);
+
+  useEffect(() => {
+    if (!repositoryId) return;
+
+    getRepository(repositoryId)
+      .then(setRepository)
+      .catch(() => {});
+  }, [repositoryId]);
+
+  const repoName = repository?.name || "Loading...";
 
   return (
     <div className="min-h-screen bg-[#07090c] text-white flex overflow-hidden">
-      {/* =========================================================
-          BACKGROUND GRID
-      ========================================================== */}
-
+      {/* Background grid */}
       <div
         className="fixed inset-0 pointer-events-none opacity-[0.18]"
         style={{
@@ -67,16 +71,10 @@ function Workspace() {
         }}
       />
 
-      {/* =========================================================
-          AMBIENT GLOW
-      ========================================================== */}
-
+      {/* Ambient glow */}
       <div className="fixed top-0 left-0 w-[450px] h-[450px] bg-cyan-500/[0.025] blur-[130px] rounded-full pointer-events-none" />
 
-      {/* =========================================================
-          SIDEBAR
-      ========================================================== */}
-
+      {/* Sidebar */}
       <aside className="relative z-20 w-64 min-h-screen border-r border-white/[0.08] bg-[#090c10]/95 backdrop-blur-xl flex flex-col">
         {/* Logo */}
         <div className="h-20 px-6 flex items-center border-b border-white/[0.08]">
@@ -101,9 +99,7 @@ function Workspace() {
             <div className="flex items-center gap-1.5 mt-2">
               <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
 
-              <p className="text-[11px] text-green-400">
-                Analysis complete
-              </p>
+              <p className="text-[11px] text-green-400">Analysis complete</p>
             </div>
           </div>
         </div>
@@ -121,7 +117,7 @@ function Workspace() {
               return (
                 <NavLink
                   key={item.path}
-                  to={`/workspace/${repoName}/${item.path}`}
+                  to={`/workspace/${repositoryId}/${item.path}`}
                   className={({ isActive }) =>
                     `group relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200 ${
                       isActive
@@ -154,30 +150,15 @@ function Workspace() {
             })}
           </div>
         </nav>
-
-        {/* Bottom */}
-        <div className="p-4 border-t border-white/[0.08]">
-          <NavLink
-            to="/"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-500 hover:text-slate-200 hover:bg-white/[0.035] transition-all"
-          >
-            <ChevronLeft size={17} />
-
-            <span>Back to Home</span>
-          </NavLink>
-        </div>
       </aside>
 
-      {/* =========================================================
-          MAIN AREA
-      ========================================================== */}
-
+      {/* Main area */}
       <main className="relative z-10 flex-1 min-w-0 flex flex-col">
         {/* Top bar */}
-        <header className="h-20 flex-shrink-0 border-b border-white/[0.08] bg-[#080b0f]/90 backdrop-blur-xl flex items-center justify-between px-8">
+        <header className="min-h-20 flex-shrink-0 border-b border-white/[0.08] bg-[#080b0f]/90 backdrop-blur-xl flex items-center justify-between gap-4 px-5 md:px-8">
           {/* Page title */}
-          <div>
-            <div className="flex items-center gap-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-lg font-semibold text-slate-100">
                 Repository Workspace
               </h2>
@@ -187,24 +168,23 @@ function Workspace() {
               </span>
             </div>
 
-            <p className="text-xs text-slate-600 mt-1">
+            <p className="text-xs text-slate-600 mt-1 truncate">
               Explore and understand your codebase
             </p>
           </div>
 
-          {/* Search */}
-          <div className="hidden md:flex items-center gap-2 bg-[#0b0e12] border border-white/[0.08] rounded-lg px-3.5 py-2.5 w-72 focus-within:border-cyan-400/30 transition-colors">
-            <Search size={16} className="text-slate-600" />
+          {/* Right controls */}
+          <div className="flex items-center gap-3 shrink-0">
+            {/* Back to Home */}
+            <button
+              type="button"
+              onClick={() => navigate("/")}
+              className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-white/[0.08] bg-white/[0.02] text-xs text-slate-400 hover:text-white hover:bg-white/[0.05] transition"
+            >
+              <ChevronLeft size={16} />
 
-            <input
-              type="text"
-              placeholder="Search repository..."
-              className="bg-transparent outline-none text-sm text-slate-300 placeholder:text-slate-700 w-full"
-            />
-
-            <span className="text-[9px] font-mono text-slate-700 border border-white/[0.06] rounded px-1.5 py-0.5">
-              Ctrl K
-            </span>
+              <span className="hidden sm:inline">Back to Home</span>
+            </button>
           </div>
         </header>
 

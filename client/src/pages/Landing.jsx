@@ -1,36 +1,64 @@
+import { createRepository } from "../lib/api";
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  ArrowRight,
-  FileCode2,
-  GitBranch,
-  Upload,
-} from "lucide-react";
+import { ArrowRight, FileCode2, GitBranch, Upload, X } from "lucide-react";
 
 function Landing() {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
 
   const [githubUrl, setGithubUrl] = useState("");
-
-  const handleFile = (file) => {
-    if (!file) return;
-
-    // Frontend only for now.
-    // Backend integration will be added later.
-    navigate("/analysis");
-  };
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const handleFileChange = (event) => {
     const file = event.target.files?.[0];
-    handleFile(file);
+
+    if (!file) return;
+
+    setSelectedFile(file);
   };
 
-  const handleGithubAnalyze = () => {
-    if (!githubUrl.trim()) return;
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
 
-    // Backend integration will be added later.
-    navigate("/analysis");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleFileAnalyze = async () => {
+    if (!selectedFile || isAnalyzing) return;
+
+    try {
+      setIsAnalyzing(true);
+
+      const data = await createRepository({
+        file: selectedFile,
+      });
+
+      navigate(`/analysis?repositoryId=${data.repositoryId}`);
+    } catch (error) {
+      console.error("Failed to analyze repository:", error);
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleGithubAnalyze = async () => {
+    if (!githubUrl.trim() || isAnalyzing) return;
+
+    try {
+      setIsAnalyzing(true);
+
+      const data = await createRepository({
+        githubUrl: githubUrl.trim(),
+      });
+
+      navigate(`/analysis?repositoryId=${data.repositoryId}`);
+    } catch (error) {
+      console.error("Failed to analyze GitHub repository:", error);
+      setIsAnalyzing(false);
+    }
   };
 
   return (
@@ -87,11 +115,8 @@ function Landing() {
       <main className="relative z-10 max-w-[1320px] mx-auto px-6 lg:px-8">
         <div className="min-h-[calc(100vh-64px)] flex items-center">
           <div className="w-full grid lg:grid-cols-[1fr_0.92fr] gap-16 xl:gap-24 items-center py-12 lg:py-16">
-
             {/* Left */}
             <section className="max-w-[680px]">
-
-              {/* Ripple visual */}
               <div className="relative w-28 h-28 mb-8">
                 <div className="absolute inset-0 rounded-full border border-cyan-500/10" />
                 <div className="absolute inset-[10px] rounded-full border border-cyan-400/20" />
@@ -109,13 +134,9 @@ function Landing() {
               </div>
 
               <h1 className="text-[54px] sm:text-[64px] lg:text-[68px] xl:text-[72px] leading-[0.99] tracking-[-0.045em] font-semibold">
-                <span className="block text-[#f1f3f5]">
-                  Understand any
-                </span>
+                <span className="block text-[#f1f3f5]">Understand any</span>
 
-                <span className="block text-[#f1f3f5]">
-                  codebase.
-                </span>
+                <span className="block text-[#f1f3f5]">codebase.</span>
 
                 <span className="block text-[#8c929b]">
                   Before you change it.
@@ -146,9 +167,8 @@ function Landing() {
             {/* Right */}
             <section className="w-full">
               <div className="rounded-xl border border-white/[0.10] bg-[#0d0f12]/95 p-2 shadow-[0_30px_100px_rgba(0,0,0,0.35)]">
-
                 {/* Upload */}
-                <div className="rounded-lg border border-dashed border-white/[0.12] bg-[#0f1114] px-6 sm:px-10 py-14">
+                <div className="rounded-lg border border-dashed border-white/[0.12] bg-[#0f1114] px-6 sm:px-10 py-10">
                   <div className="flex justify-center mb-5">
                     <div className="w-14 h-14 rounded-lg bg-[#171a1e] border border-white/[0.07] flex items-center justify-center">
                       <FileCode2
@@ -182,12 +202,52 @@ function Landing() {
                       className="hidden"
                     />
 
+                    {/* Selected file */}
+                    {selectedFile ? (
+                      <div className="mt-6 flex items-center gap-3 text-left rounded-lg border border-cyan-400/20 bg-cyan-400/[0.04] px-4 py-3">
+                        <FileCode2
+                          size={19}
+                          className="text-cyan-400 shrink-0"
+                        />
+
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-slate-200 truncate">
+                            {selectedFile.name}
+                          </p>
+
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
+                          </p>
+                        </div>
+
+                        <button
+                          onClick={handleRemoveFile}
+                          disabled={isAnalyzing}
+                          className="text-slate-500 hover:text-white transition-colors disabled:opacity-50"
+                          title="Remove file"
+                        >
+                          <X size={17} />
+                        </button>
+                      </div>
+                    ) : null}
+
+                    {/* Upload / Analyze button */}
                     <button
-                      onClick={() => fileInputRef.current?.click()}
-                      className="mt-8 inline-flex items-center gap-2.5 bg-cyan-400 hover:bg-cyan-300 text-[#061014] font-medium text-sm px-6 py-3.5 rounded-md transition-all duration-200 hover:shadow-[0_0_30px_rgba(34,211,238,0.18)] active:scale-[0.98]"
+                      onClick={
+                        selectedFile
+                          ? handleFileAnalyze
+                          : () => fileInputRef.current?.click()
+                      }
+                      disabled={isAnalyzing}
+                      className="mt-6 inline-flex items-center gap-2.5 bg-cyan-400 hover:bg-cyan-300 disabled:opacity-60 disabled:cursor-not-allowed text-[#061014] font-medium text-sm px-6 py-3.5 rounded-md transition-all duration-200 hover:shadow-[0_0_30px_rgba(34,211,238,0.18)] active:scale-[0.98]"
                     >
                       <Upload size={17} />
-                      Upload Repository
+
+                      {isAnalyzing
+                        ? "Starting analysis..."
+                        : selectedFile
+                          ? "Analyze Repository"
+                          : "Choose ZIP File"}
                     </button>
                   </div>
                 </div>
@@ -228,7 +288,8 @@ function Landing() {
 
                     <button
                       onClick={handleGithubAnalyze}
-                      className="h-12 px-5 rounded-md bg-[#191d22] border border-white/[0.10] text-sm font-medium text-slate-300 hover:text-white hover:border-cyan-400/30 hover:bg-[#1b2026] transition-all flex items-center gap-2"
+                      disabled={isAnalyzing}
+                      className="h-12 px-5 rounded-md bg-[#191d22] border border-white/[0.10] text-sm font-medium text-slate-300 hover:text-white hover:border-cyan-400/30 hover:bg-[#1b2026] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
                     >
                       Analyze
                       <ArrowRight size={16} />
@@ -241,9 +302,7 @@ function Landing() {
                   <div className="flex flex-wrap justify-between gap-3 text-[11px] font-mono text-slate-600">
                     <span>.zip up to 50 MB · public GitHub repos</span>
 
-                    <span>
-                      JS · TS · JSX · TSX · JSON
-                    </span>
+                    <span>JS · TS · JSX · TSX · JSON</span>
                   </div>
                 </div>
               </div>
@@ -251,7 +310,6 @@ function Landing() {
               {/* Status */}
               <div className="mt-5 flex items-center justify-center gap-2 text-[11px] text-slate-700 font-mono">
                 <span className="w-1.5 h-1.5 rounded-full bg-cyan-500/70 animate-pulse" />
-
                 Repository intelligence starts locally
               </div>
             </section>

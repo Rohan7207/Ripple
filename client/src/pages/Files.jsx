@@ -1,5 +1,7 @@
-import RippleLogo from "../components/RippleLogo";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+import { getRepositoryFiles, getRepositoryFile } from "../lib/api";
+
 import {
   Search,
   Folder,
@@ -14,260 +16,112 @@ import {
   Code2,
 } from "lucide-react";
 
+function buildFileTree(files) {
+  const root = [];
+
+  for (const file of files) {
+    const filePath =
+      typeof file === "string" ? file : file.path || file.relativePath;
+
+    if (!filePath) continue;
+
+    const parts = filePath.replaceAll("\\", "/").split("/").filter(Boolean);
+
+    let current = root;
+    let currentPath = "";
+
+    parts.forEach((part, index) => {
+      currentPath = currentPath ? `${currentPath}/${part}` : part;
+
+      const isFile = index === parts.length - 1;
+
+      let existing = current.find((item) => item.name === part);
+
+      if (!existing) {
+        existing = {
+          name: part,
+          type: isFile ? "file" : "folder",
+          path: currentPath,
+          file: isFile ? file : undefined,
+          children: isFile ? undefined : [],
+        };
+
+        current.push(existing);
+      }
+
+      if (!isFile) {
+        current = existing.children;
+      }
+    });
+  }
+
+  return root;
+}
+
 function Files() {
-  const [selectedFile, setSelectedFile] = useState("src/App.jsx");
+  const { repositoryId } = useParams();
+
+  const [files, setFiles] = useState([]);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [fileContent, setFileContent] = useState("");
   const [search, setSearch] = useState("");
   const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [fileLoading, setFileLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const files = [
-    {
-      name: "src",
-      type: "folder",
-      children: [
-        {
-          name: "components",
-          type: "folder",
-          children: [
-            {
-              name: "Navbar.jsx",
-              type: "file",
-              language: "jsx",
-            },
-            {
-              name: "Sidebar.jsx",
-              type: "file",
-              language: "jsx",
-            },
-            {
-              name: "Button.jsx",
-              type: "file",
-              language: "jsx",
-            },
-          ],
-        },
-        {
-          name: "pages",
-          type: "folder",
-          children: [
-            {
-              name: "Home.jsx",
-              type: "file",
-              language: "jsx",
-            },
-            {
-              name: "Dashboard.jsx",
-              type: "file",
-              language: "jsx",
-            },
-          ],
-        },
-        {
-          name: "App.jsx",
-          type: "file",
-          language: "jsx",
-        },
-        {
-          name: "main.jsx",
-          type: "file",
-          language: "jsx",
-        },
-        {
-          name: "index.css",
-          type: "file",
-          language: "css",
-        },
-      ],
-    },
-    {
-      name: "server",
-      type: "folder",
-      children: [
-        {
-          name: "routes.js",
-          type: "file",
-          language: "js",
-        },
-        {
-          name: "controller.js",
-          type: "file",
-          language: "js",
-        },
-        {
-          name: "database.js",
-          type: "file",
-          language: "js",
-        },
-      ],
-    },
-    {
-      name: "package.json",
-      type: "file",
-      language: "json",
-    },
-    {
-      name: "README.md",
-      type: "file",
-      language: "md",
-    },
-    {
-      name: ".gitignore",
-      type: "file",
-      language: "text",
-    },
-  ];
+  useEffect(() => {
+    if (!repositoryId) return;
 
-  const sourceCode = {
-    "src/App.jsx": `import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Home from "./pages/Home";
-import Dashboard from "./pages/Dashboard";
+    async function loadFiles() {
+      try {
+        setLoading(true);
+        setError("");
 
-function App() {
-  return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-      </Routes>
-    </BrowserRouter>
-  );
-}
+        const data = await getRepositoryFiles(repositoryId);
 
-export default App;`,
+        setFiles(data.files || []);
+      } catch (error) {
+        setError(error.message);
+      } finally {
+        setLoading(false);
+      }
+    }
 
-    "src/main.jsx": `import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-import App from "./App";
-import "./index.css";
+    loadFiles();
+  }, [repositoryId]);
 
-createRoot(document.getElementById("root")).render(
-  <StrictMode>
-    <App />
-  </StrictMode>
-);`,
+  useEffect(() => {
+    if (!repositoryId || !selectedFile) {
+      setFileContent("");
+      return;
+    }
 
-    "src/components/Navbar.jsx": `function Navbar() {
-  return (
-    <nav className="navbar">
-      <div className="logo">Ripple</div>
+    async function loadFile() {
+      try {
+        setFileLoading(true);
+        setFileContent("");
 
-      <div className="links">
-        <a href="/">Home</a>
-        <a href="/dashboard">Dashboard</a>
-      </div>
-    </nav>
-  );
-}
+        const data = await getRepositoryFile(repositoryId, selectedFile.id);
 
-export default Navbar;`,
+        setFileContent(data.content || "");
+      } catch (error) {
+        setFileContent(`// ${error.message}`);
+      } finally {
+        setFileLoading(false);
+      }
+    }
 
-    "src/components/Sidebar.jsx": `function Sidebar() {
-  return (
-    <aside className="sidebar">
-      <h2>Workspace</h2>
+    loadFile();
+  }, [repositoryId, selectedFile]);
 
-      <nav>
-        <a href="/overview">Overview</a>
-        <a href="/files">Files</a>
-        <a href="/architecture">Architecture</a>
-      </nav>
-    </aside>
-  );
-}
-
-export default Sidebar;`,
-
-    "src/pages/Home.jsx": `function Home() {
-  return (
-    <main>
-      <h1>Welcome to the application</h1>
-      <p>Explore the repository with Ripple.</p>
-    </main>
-  );
-}
-
-export default Home;`,
-
-    "src/pages/Dashboard.jsx": `function Dashboard() {
-  return (
-    <main>
-      <h1>Dashboard</h1>
-      <p>Repository metrics appear here.</p>
-    </main>
-  );
-}
-
-export default Dashboard;`,
-
-    "server/routes.js": `const express = require("express");
-
-const router = express.Router();
-
-router.get("/repositories", getRepositories);
-router.post("/repositories", createRepository);
-
-module.exports = router;`,
-
-    "server/controller.js": `async function createRepository(req, res) {
-  const { url } = req.body;
-
-  // Repository analysis will happen here.
-
-  res.json({
-    message: "Repository analysis started",
-  });
-}
-
-module.exports = {
-  createRepository,
-};`,
-
-    "server/database.js": `const mongoose = require("mongoose");
-
-async function connectDatabase() {
-  await mongoose.connect(process.env.MONGO_URI);
-
-  console.log("Database connected");
-}
-
-module.exports = connectDatabase;`,
-
-    "package.json": `{
-  "name": "ripple-demo",
-  "version": "1.0.0",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build"
-  },
-  "dependencies": {
-    "react": "^19.0.0",
-    "react-router-dom": "^7.0.0"
-  }
-}`,
-
-    "README.md": `# Ripple Demo
-
-AI-powered repository understanding tool.
-
-## Features
-
-- Repository analysis
-- Architecture visualization
-- Source code exploration
-- AI repository questions
-- Impact analysis
-- What-if analysis`,
-
-    ".gitignore": `node_modules/
-dist/
-.env
-.env.local`,
-  };
+  const fileTree = buildFileTree(files);
 
   const handleCopy = async () => {
+    if (!fileContent) return;
+
     try {
-      await navigator.clipboard.writeText(
-        sourceCode[selectedFile] || ""
-      );
+      await navigator.clipboard.writeText(fileContent);
 
       setCopied(true);
 
@@ -284,9 +138,7 @@ dist/
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-5">
         <div>
-          <h1 className="text-2xl font-bold">
-            Repository Files
-          </h1>
+          <h1 className="text-2xl font-bold">Repository Files</h1>
 
           <p className="text-sm text-gray-500 mt-1">
             Explore the repository structure and inspect source code.
@@ -294,17 +146,20 @@ dist/
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500">
-            128 files
-          </span>
+          <span className="text-xs text-gray-500">{files.length} files</span>
 
           <span className="w-1 h-1 rounded-full bg-gray-600" />
 
-          <span className="text-xs text-green-400">
-            Indexed
-          </span>
+          <span className="text-xs text-green-400">Indexed</span>
         </div>
       </div>
+
+      {/* Error */}
+      {error && (
+        <div className="mb-4 px-4 py-3 rounded-lg border border-red-500/20 bg-red-500/5 text-sm text-red-400">
+          {error}
+        </div>
+      )}
 
       {/* File Explorer */}
       <div className="flex-1 min-h-0 bg-[#0c1016] border border-white/10 rounded-2xl overflow-hidden flex flex-col lg:flex-row">
@@ -313,10 +168,7 @@ dist/
           {/* Search */}
           <div className="p-4 border-b border-white/10">
             <div className="flex items-center gap-2 bg-white/[0.03] border border-white/10 rounded-lg px-3 py-2.5">
-              <Search
-                size={16}
-                className="text-gray-500"
-              />
+              <Search size={16} className="text-gray-500" />
 
               <input
                 value={search}
@@ -329,13 +181,23 @@ dist/
 
           {/* Tree */}
           <div className="flex-1 overflow-y-auto p-3">
-            <FileTree
-              items={files}
-              parentPath=""
-              selectedFile={selectedFile}
-              setSelectedFile={setSelectedFile}
-              search={search}
-            />
+            {loading ? (
+              <div className="px-2 py-3 text-sm text-gray-600">
+                Loading files...
+              </div>
+            ) : files.length === 0 ? (
+              <div className="px-2 py-3 text-sm text-gray-600">
+                No files found.
+              </div>
+            ) : (
+              <FileTree
+                items={fileTree}
+                parentPath=""
+                selectedFile={selectedFile}
+                setSelectedFile={setSelectedFile}
+                search={search}
+              />
+            )}
           </div>
         </div>
 
@@ -344,26 +206,21 @@ dist/
           {/* Code Header */}
           <div className="h-14 px-5 border-b border-white/10 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2 min-w-0">
-              <FileCode2
-                size={17}
-                className="text-blue-400 shrink-0"
-              />
+              <FileCode2 size={17} className="text-blue-400 shrink-0" />
 
               <span className="text-sm text-gray-300 truncate">
-                {selectedFile}
+                {selectedFile?.path || "Select a file"}
               </span>
             </div>
 
             <button
               onClick={handleCopy}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition"
+              disabled={!selectedFile || fileLoading || !fileContent}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {copied ? (
                 <>
-                  <Check
-                    size={14}
-                    className="text-green-400"
-                  />
+                  <Check size={14} className="text-green-400" />
                   Copied
                 </>
               ) : (
@@ -378,10 +235,12 @@ dist/
           {/* Code */}
           <div className="flex-1 overflow-auto bg-[#080b10]">
             <div className="min-w-max py-4">
-              {renderCode(
-                sourceCode[selectedFile] ||
-                  "// Source code will be available after repository analysis."
-              )}
+              {fileLoading
+                ? renderCode("// Loading file...")
+                : renderCode(
+                    fileContent ||
+                      "// Select a file to inspect its source code.",
+                  )}
             </div>
           </div>
 
@@ -419,14 +278,18 @@ function FileTree({
         if (
           search &&
           item.type === "file" &&
-          !currentPath
-            .toLowerCase()
-            .includes(search.toLowerCase())
+          !currentPath.toLowerCase().includes(search.toLowerCase())
         ) {
           return null;
         }
 
         if (item.type === "folder") {
+          const hasMatchingFile = folderHasMatch(item, currentPath, search);
+
+          if (search && !hasMatchingFile) {
+            return null;
+          }
+
           return (
             <FolderItem
               key={currentPath}
@@ -453,6 +316,26 @@ function FileTree({
   );
 }
 
+function folderHasMatch(item, currentPath, search) {
+  if (!search) return true;
+
+  const query = search.toLowerCase();
+
+  if (currentPath.toLowerCase().includes(query)) {
+    return true;
+  }
+
+  return (item.children || []).some((child) => {
+    const childPath = `${currentPath}/${child.name}`;
+
+    if (child.type === "file") {
+      return childPath.toLowerCase().includes(query);
+    }
+
+    return folderHasMatch(child, childPath, search);
+  });
+}
+
 function FolderItem({
   item,
   currentPath,
@@ -461,8 +344,14 @@ function FolderItem({
   search,
 }) {
   const [open, setOpen] = useState(
-    currentPath === "src"
+    currentPath === "src" || currentPath === "Ripple-main",
   );
+
+  useEffect(() => {
+    if (search) {
+      setOpen(true);
+    }
+  }, [search]);
 
   return (
     <div>
@@ -470,22 +359,12 @@ function FolderItem({
         onClick={() => setOpen(!open)}
         className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition"
       >
-        {open ? (
-          <ChevronDown size={15} />
-        ) : (
-          <ChevronRight size={15} />
-        )}
+        {open ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
 
         {open ? (
-          <FolderOpen
-            size={16}
-            className="text-blue-400"
-          />
+          <FolderOpen size={16} className="text-blue-400" />
         ) : (
-          <Folder
-            size={16}
-            className="text-blue-400"
-          />
+          <Folder size={16} className="text-blue-400" />
         )}
 
         <span>{item.name}</span>
@@ -494,7 +373,7 @@ function FolderItem({
       {open && (
         <div className="ml-5 pl-2 border-l border-white/10 mt-1">
           <FileTree
-            items={item.children}
+            items={item.children || []}
             parentPath={currentPath}
             selectedFile={selectedFile}
             setSelectedFile={setSelectedFile}
@@ -506,17 +385,17 @@ function FolderItem({
   );
 }
 
-function FileItem({
-  item,
-  currentPath,
-  selectedFile,
-  setSelectedFile,
-}) {
-  const active = selectedFile === currentPath;
+function FileItem({ item, currentPath, selectedFile, setSelectedFile }) {
+  const active = selectedFile?.path === currentPath;
 
   return (
     <button
-      onClick={() => setSelectedFile(currentPath)}
+      onClick={() => {
+        setSelectedFile({
+          ...item.file,
+          path: currentPath,
+        });
+      }}
       className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm transition ${
         active
           ? "bg-blue-500/10 text-blue-400 border border-blue-500/20"
@@ -527,48 +406,28 @@ function FileItem({
 
       <FileIcon name={item.name} />
 
-      <span className="truncate">
-        {item.name}
-      </span>
+      <span className="truncate">{item.name}</span>
     </button>
   );
 }
 
 function FileIcon({ name }) {
   if (name.endsWith(".json")) {
-    return (
-      <FileJson
-        size={16}
-        className="text-yellow-400 shrink-0"
-      />
-    );
+    return <FileJson size={16} className="text-yellow-400 shrink-0" />;
   }
 
   if (name.endsWith(".md")) {
-    return (
-      <FileText
-        size={16}
-        className="text-gray-400 shrink-0"
-      />
-    );
+    return <FileText size={16} className="text-gray-400 shrink-0" />;
   }
 
-  return (
-    <FileCode2
-      size={16}
-      className="text-blue-400 shrink-0"
-    />
-  );
+  return <FileCode2 size={16} className="text-blue-400 shrink-0" />;
 }
 
 function renderCode(code) {
   const lines = code.split("\n");
 
   return lines.map((line, index) => (
-    <div
-      key={index}
-      className="flex hover:bg-white/[0.02]"
-    >
+    <div key={index} className="flex hover:bg-white/[0.02]">
       <span className="w-14 text-right pr-4 text-xs text-gray-700 select-none">
         {index + 1}
       </span>
@@ -580,12 +439,38 @@ function renderCode(code) {
   ));
 }
 
-function getLanguage(filename) {
-  if (filename.endsWith(".jsx")) return "JavaScript React";
-  if (filename.endsWith(".js")) return "JavaScript";
-  if (filename.endsWith(".css")) return "CSS";
-  if (filename.endsWith(".json")) return "JSON";
-  if (filename.endsWith(".md")) return "Markdown";
+function getLanguage(file) {
+  if (!file?.name) return "Text";
+
+  if (file.language) {
+    if (file.language === "JavaScript") {
+      return "JavaScript";
+    }
+
+    return file.language;
+  }
+
+  const filename = file.name;
+
+  if (filename.endsWith(".jsx")) {
+    return "JavaScript React";
+  }
+
+  if (filename.endsWith(".js")) {
+    return "JavaScript";
+  }
+
+  if (filename.endsWith(".css")) {
+    return "CSS";
+  }
+
+  if (filename.endsWith(".json")) {
+    return "JSON";
+  }
+
+  if (filename.endsWith(".md")) {
+    return "Markdown";
+  }
 
   return "Text";
 }
