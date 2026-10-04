@@ -8,6 +8,10 @@ import {
   getRepositoryGraph,
 } from "../services/repository.service.js";
 
+import { askRipple } from "../../../analysis/ai/askRipple.js";
+import { analyzeImpact } from "../../../analysis/ai/impactAnalysis.js";
+import { analyzeWhatIf } from "../../../analysis/ai/whatIf.js";
+
 export async function createRepository(req, res, next) {
   console.log("BODY:", req.body);
   try {
@@ -136,6 +140,51 @@ export function getRepositoryGraphController(req, res, next) {
     return res.json({
       success: true,
       data: graph,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function askRippleController(req, res, next) {
+  try {
+    const repository = getRepositoryById(req.params.repositoryId);
+
+    const result = await askRipple(repository.analysis, req.body?.question);
+
+    return res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function analyzeImpactController(req, res, next) {
+  try {
+    const repository = getRepositoryById(req.params.repositoryId);
+
+    const result = await analyzeImpact(repository.analysis, req.body?.target);
+
+    return res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function analyzeWhatIfController(req, res, next) {
+  try {
+    const repository = getRepositoryById(req.params.repositoryId);
+
+    const result = await analyzeWhatIf(repository.analysis, req.body?.scenario);
+
+    return res.json({
+      success: true,
+      data: result,
     });
   } catch (error) {
     next(error);
