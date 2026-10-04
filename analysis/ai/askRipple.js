@@ -1,14 +1,22 @@
 import { GroqProvider } from "./groqProvider.js";
 import { retrieveContext } from "../context/contextRetriever.js";
 
-export async function askRipple(analysis, question) {
+export async function askRipple(
+  analysis,
+  question
+) {
   if (!question || !question.trim()) {
     throw new Error("Question is required");
   }
 
-  const context = retrieveContext(analysis, question);
+  const context =
+    retrieveContext(
+      analysis,
+      question
+    );
 
-  const provider = new GroqProvider();
+  const provider =
+    new GroqProvider();
 
   const prompt = `
 You are Ripple, an AI repository analysis assistant.
@@ -49,7 +57,11 @@ USER QUESTION:
 ${question}
 
 REPOSITORY CONTEXT:
-${JSON.stringify(context, null, 2)}
+${JSON.stringify(
+  context,
+  null,
+  2
+)}
 `;
 
   const answer = await provider.generate(prompt, {

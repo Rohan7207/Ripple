@@ -2,14 +2,24 @@ import { GroqProvider } from "./groqProvider.js";
 import { retrieveContext } from "../context/contextRetriever.js";
 import { parseAIResponse } from "./aiResponse.js";
 
-export async function analyzeWhatIf(analysis, scenario) {
+export async function analyzeWhatIf(
+  analysis,
+  scenario
+) {
   if (!scenario || !scenario.trim()) {
-    throw new Error("What-if scenario is required");
+    throw new Error(
+      "What-if scenario is required"
+    );
   }
 
-  const context = retrieveContext(analysis, scenario);
+  const context =
+    retrieveContext(
+      analysis,
+      scenario
+    );
 
-  const provider = new GroqProvider();
+  const provider =
+    new GroqProvider();
 
   const prompt = `
 You are Ripple, a repository change-impact assistant.
@@ -21,7 +31,11 @@ WHAT-IF SCENARIO:
 ${scenario}
 
 REPOSITORY CONTEXT:
-${JSON.stringify(context, null, 2)}
+${JSON.stringify(
+  context,
+  null,
+  2
+)}
 
 Rules:
 
