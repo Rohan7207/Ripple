@@ -87,3 +87,25 @@ export async function getRepositoryFilesController(req, res, next) {
     next(error);
   }
 }
+
+export async function getRepositoryAnalysisController(req, res, next) {
+  try {
+    const repository = getRepositoryById(req.params.repositoryId);
+
+    return res.json({
+      success: true,
+      data: {
+        symbols: repository.analysis?.symbols || [],
+        relationships: repository.analysis?.relationships || [],
+        graph: repository.analysis?.graph || {
+          nodes: [],
+          edges: [],
+        },
+        statistics: repository.analysis?.statistics || {},
+        analysis: repository.analysis?.analysis || {},
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+}

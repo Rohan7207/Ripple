@@ -12,10 +12,17 @@ const IGNORED_DIRECTORIES = new Set([
   "coverage",
   ".next",
   ".cache",
-  "out"
+  "out",
 ]);
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024;
+
+function isSensitiveFile(fileName) {
+  return (
+    fileName === ".env" ||
+    (fileName.startsWith(".env.") && fileName !== ".env.example")
+  );
+}
 
 export function discoverFiles(repositoryPath) {
   const files = [];
@@ -27,25 +34,16 @@ export function discoverFiles(repositoryPath) {
 
     try {
       entries = fs.readdirSync(currentPath, {
-        withFileTypes: true
+        withFileTypes: true,
       });
     } catch {
-      warnings.push(
-        `Unable to read directory: ${relativePath || "."}`
-      );
+      warnings.push(`Unable to read directory: ${relativePath || "."}`);
       return;
     }
 
     for (const entry of entries) {
-      const absolutePath = path.join(
-        currentPath,
-        entry.name
-      );
-
-      const entryRelativePath = path.join(
-        relativePath,
-        entry.name
-      );
+      const absolutePath = path.join(currentPath, entry.name);
+      const entryRelativePath = path.join(relativePath, entry.name);
 
       if (entry.isDirectory()) {
         if (IGNORED_DIRECTORIES.has(entry.name)) {
@@ -54,7 +52,7 @@ export function discoverFiles(repositoryPath) {
 
         directories.push({
           path: entryRelativePath.replace(/\\/g, "/"),
-          name: entry.name
+          name: entry.name,
         });
 
         walk(absolutePath, entryRelativePath);
@@ -65,26 +63,26 @@ export function discoverFiles(repositoryPath) {
         continue;
       }
 
+      // Do not expose sensitive environment files
+      if (isSensitiveFile(entry.name)) {
+        continue;
+      }
+
       let stats;
 
       try {
         stats = fs.statSync(absolutePath);
       } catch {
-        warnings.push(
-          `Unable to inspect file: ${entryRelativePath}`
-        );
+        warnings.push(`Unable to inspect file: ${entryRelativePath}`);
         continue;
       }
 
       if (stats.size > MAX_FILE_SIZE) {
-        warnings.push(
-          `Skipped large file: ${entryRelativePath}`
-        );
+        warnings.push(`Skipped large file: ${entryRelativePath}`);
         continue;
       }
 
-      const normalizedPath =
-        entryRelativePath.replace(/\\/g, "/");
+      const normalizedPath = entryRelativePath.replace(/\\/g, "/");
 
       files.push({
         path: normalizedPath,
@@ -92,7 +90,7 @@ export function discoverFiles(repositoryPath) {
         absolutePath,
         size: stats.size,
         language: detectLanguage(normalizedPath),
-        type: classifyFile(normalizedPath)
+        type: classifyFile(normalizedPath),
       });
     }
   }
@@ -102,6 +100,6 @@ export function discoverFiles(repositoryPath) {
   return {
     files,
     directories,
-    warnings
+    warnings,
   };
 }

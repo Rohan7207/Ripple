@@ -7,7 +7,8 @@ import {
 } from "../utils/repository.utils.js";
 
 import { extractZip } from "../ingestion/repository.extractor.js";
-import { scanRepository } from "../ingestion/repository.scanner.js";
+
+import { analyzeRepository } from "../../../analysis/analyzeRepository.js";
 
 export async function createFromZip(file) {
   if (!file) {
@@ -28,11 +29,12 @@ export async function createFromZip(file) {
 
   try {
     const rootDir = await extractZip(file.buffer, repository.id);
-    const scan = await scanRepository(rootDir);
+    const analysis = await analyzeRepository(rootDir);
 
     repository.rootDir = rootDir;
-    repository.files = scan.files;
-    repository.totalFiles = scan.totalFiles;
+    repository.files = analysis.files;
+    repository.totalFiles = analysis.statistics.files;
+    repository.analysis = analysis;
     repository.status = "READY";
 
     return repository;
