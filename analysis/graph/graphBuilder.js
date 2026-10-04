@@ -23,6 +23,22 @@ function buildGraph(files, symbols, relationships) {
       return;
     }
 
+    // Never create an edge to a node that does not exist.
+    if (!nodeIds.has(source) || !nodeIds.has(target)) {
+      return;
+    }
+
+    const exists = edges.some(
+      (edge) =>
+        edge.source === source &&
+        edge.target === target &&
+        edge.type === type
+    );
+
+    if (exists) {
+      return;
+    }
+
     edges.push({
       source,
       target,
@@ -31,8 +47,15 @@ function buildGraph(files, symbols, relationships) {
     });
   }
 
+  // --------------------------------------------------
   // File nodes
+  // --------------------------------------------------
+
   for (const file of files || []) {
+    if (!file.path) {
+      continue;
+    }
+
     addNode(
       `file:${file.path}`,
       "file",
@@ -45,11 +68,15 @@ function buildGraph(files, symbols, relationships) {
     );
   }
 
+  // --------------------------------------------------
   // Symbol nodes
-  for (const symbol of symbols || []) {
-    const filePath = symbol.filePath || symbol.path;
+  // --------------------------------------------------
 
-    if (!filePath) {
+  for (const symbol of symbols || []) {
+    const filePath =
+      symbol.filePath || symbol.path;
+
+    if (!filePath || !symbol.name) {
       continue;
     }
 
@@ -74,28 +101,82 @@ function buildGraph(files, symbols, relationships) {
     );
   }
 
+  // --------------------------------------------------
   // Relationship edges
+  // --------------------------------------------------
+
   for (const relationship of relationships || []) {
+    if (!relationship.type) {
+      continue;
+    }
+
+    // ----------------------------------------------
+    // File → File relationships
+    // ----------------------------------------------
+
     if (
       relationship.type === "imports" ||
       relationship.type === "exports"
     ) {
+      const fromFilePath =
+        relationship.fromFilePath ||
+        relationship.from;
+
+      const toFilePath =
+        relationship.toFilePath ||
+        relationship.to;
+
+      if (!fromFilePath || !toFilePath) {
+        continue;
+      }
+
       addEdge(
-        `file:${relationship.from}`,
-        `file:${relationship.to}`,
+        `file:${fromFilePath}`,
+        `file:${toFilePath}`,
         relationship.type
       );
 
       continue;
     }
 
+    // ----------------------------------------------
+    // Symbol → Symbol relationships
+    // ----------------------------------------------
+
     if (
       relationship.type === "calls" ||
       relationship.type === "references"
     ) {
+      const fromFilePath =
+        relationship.fromFilePath;
+
+      const toFilePath =
+        relationship.toFilePath;
+
+      const fromSymbol =
+        relationship.from;
+
+      const toSymbol =
+        relationship.to;
+
+      if (
+        !fromFilePath ||
+        !toFilePath ||
+        !fromSymbol ||
+        !toSymbol
+      ) {
+        continue;
+      }
+
+      const sourceId =
+        `symbol:${fromFilePath}:${fromSymbol}`;
+
+      const targetId =
+        `symbol:${toFilePath}:${toSymbol}`;
+
       addEdge(
-        `symbol:${relationship.from}`,
-        `symbol:${relationship.to}`,
+        sourceId,
+        targetId,
         relationship.type
       );
     }

@@ -1,16 +1,84 @@
 import fs from "node:fs";
+import path from "node:path";
 import * as parser from "@babel/parser";
 
-function extractRelationships(filePath, language) {
+const BUILTIN_FUNCTIONS = new Set([
+  "Array",
+  "Boolean",
+  "Date",
+  "Error",
+  "JSON",
+  "Map",
+  "Math",
+  "Number",
+  "Object",
+  "Promise",
+  "RegExp",
+  "Set",
+  "String",
+  "Symbol",
+  "console",
+  "parseInt",
+  "parseFloat",
+  "setTimeout",
+  "setInterval",
+  "clearTimeout",
+  "clearInterval"
+]);
+
+function resolveImportPath(filePath, importPath, repositoryPath, files) {
+  if (!importPath || !importPath.startsWith(".")) {
+    return null;
+  }
+
+  const absoluteImportPath = path.resolve(
+    path.dirname(filePath),
+    importPath
+  );
+
+  const candidates = [
+    absoluteImportPath,
+    `${absoluteImportPath}.js`,
+    `${absoluteImportPath}.jsx`,
+    `${absoluteImportPath}.ts`,
+    `${absoluteImportPath}.tsx`,
+    path.join(absoluteImportPath, "index.js"),
+    path.join(absoluteImportPath, "index.ts")
+  ];
+
+  const matchingFile = files.find((file) =>
+    candidates.includes(path.resolve(file.absolutePath))
+  );
+
+  if (!matchingFile) {
+    return null;
+  }
+
+  return path
+    .relative(repositoryPath, matchingFile.absolutePath)
+    .replace(/\\/g, "/");
+}
+
+function extractRelationships(
+  filePath,
+  language,
+  options = {}
+) {
   if (!["JavaScript", "TypeScript"].includes(language)) {
     return [];
   }
+
+  const {
+    repositoryPath,
+    files = [],
+    symbols = []
+  } = options;
 
   let content;
 
   try {
     content = fs.readFileSync(filePath, "utf8");
-  } catch (error) {
+  } catch {
     return [];
   }
 
@@ -28,14 +96,60 @@ function extractRelationships(filePath, language) {
         "dynamicImport"
       ]
     });
-  } catch (error) {
+  } catch {
     return [];
   }
 
   const relationships = [];
 
+  const relativeFilePath = repositoryPath
+    ? path
+        .relative(repositoryPath, filePath)
+        .replace(/\\/g, "/")
+    : filePath.replace(/\\/g, "/");
+
+  const fileSymbols = symbols.filter(
+    (symbol) =>
+      symbol.filePath === relativeFilePath
+  );
+
+  const localSymbols = new Set(
+    fileSymbols.map((symbol) => symbol.name)
+  );
+
+  const symbolIndex = new Map();
+
+  for (const symbol of symbols) {
+    if (!symbol.name || !symbol.filePath) {
+      continue;
+    }
+
+    const key = symbol.name;
+
+    if (!symbolIndex.has(key)) {
+      symbolIndex.set(key, []);
+    }
+
+    symbolIndex.get(key).push(symbol);
+  }
+
+  const imports = new Map();
+
   function addRelationship(type, from, to, extra = {}) {
     if (!from || !to || from === to) {
+      return;
+    }
+
+    const exists = relationships.some(
+      (relationship) =>
+        relationship.type === type &&
+        relationship.from === from &&
+        relationship.to === to &&
+        relationship.fromFilePath === extra.fromFilePath &&
+        relationship.toFilePath === extra.toFilePath
+    );
+
+    if (exists) {
       return;
     }
 
@@ -71,6 +185,27 @@ function extractRelationships(filePath, language) {
     return null;
   }
 
+  function resolveSymbol(name, preferredFilePath = null) {
+    const candidates = symbolIndex.get(name) || [];
+
+    if (preferredFilePath) {
+      const exact = candidates.find(
+        (symbol) =>
+          symbol.filePath === preferredFilePath
+      );
+
+      if (exact) {
+        return exact;
+      }
+    }
+
+    if (candidates.length === 1) {
+      return candidates[0];
+    }
+
+    return null;
+  }
+
   function walk(node, currentFunction = null) {
     if (!node || typeof node !== "object") {
       return;
@@ -88,34 +223,74 @@ function extractRelationships(filePath, language) {
       case "ImportDeclaration": {
         const source = node.source?.value;
 
-        if (source) {
+        if (!source) {
+          break;
+        }
+
+        const resolvedPath = repositoryPath
+          ? resolveImportPath(
+              filePath,
+              source,
+              repositoryPath,
+              files
+            )
+          : null;
+
+        if (resolvedPath) {
           addRelationship(
             "imports",
-            filePath,
-            source
+            relativeFilePath,
+            resolvedPath,
+            {
+              fromFilePath: relativeFilePath,
+              toFilePath: resolvedPath
+            }
           );
         }
+
+        node.specifiers?.forEach((specifier) => {
+          const importedName =
+            specifier.imported?.name ||
+            specifier.imported?.value ||
+            "default";
+
+          const localName =
+            specifier.local?.name;
+
+          if (!localName || !resolvedPath) {
+            return;
+          }
+
+          imports.set(localName, {
+            importedName,
+            filePath: resolvedPath
+          });
+        });
 
         break;
       }
 
       case "ExportNamedDeclaration": {
-        if (node.source?.value) {
-          addRelationship(
-            "exports",
+        if (
+          node.source?.value &&
+          repositoryPath
+        ) {
+          const resolvedPath = resolveImportPath(
             filePath,
-            node.source.value
+            node.source.value,
+            repositoryPath,
+            files
           );
-        }
 
-        if (node.declaration) {
-          const name = node.declaration.id?.name;
-
-          if (name) {
+          if (resolvedPath) {
             addRelationship(
               "exports",
-              filePath,
-              name
+              relativeFilePath,
+              resolvedPath,
+              {
+                fromFilePath: relativeFilePath,
+                toFilePath: resolvedPath
+              }
             );
           }
         }
@@ -123,23 +298,75 @@ function extractRelationships(filePath, language) {
         break;
       }
 
-      case "ExportDefaultDeclaration":
-        addRelationship(
-          "exports",
-          filePath,
-          "default"
-        );
-        break;
-
       case "CallExpression": {
         if (
-          activeFunction &&
-          node.callee?.type === "Identifier"
+          !activeFunction ||
+          node.callee?.type !== "Identifier"
         ) {
+          break;
+        }
+
+        const calledName = node.callee.name;
+
+        if (BUILTIN_FUNCTIONS.has(calledName)) {
+          break;
+        }
+
+        const imported = imports.get(calledName);
+
+        if (imported) {
+          const targetSymbol = resolveSymbol(
+            imported.importedName,
+            imported.filePath
+          );
+
+          if (targetSymbol) {
+            addRelationship(
+              "calls",
+              activeFunction,
+              targetSymbol.name,
+              {
+                fromFilePath: relativeFilePath,
+                toFilePath: targetSymbol.filePath
+              }
+            );
+          }
+
+          break;
+        }
+
+        if (localSymbols.has(calledName)) {
+          const targetSymbol = resolveSymbol(
+            calledName,
+            relativeFilePath
+          );
+
+          if (targetSymbol) {
+            addRelationship(
+              "calls",
+              activeFunction,
+              targetSymbol.name,
+              {
+                fromFilePath: relativeFilePath,
+                toFilePath: targetSymbol.filePath
+              }
+            );
+          }
+
+          break;
+        }
+
+        const targetSymbol = resolveSymbol(calledName);
+
+        if (targetSymbol) {
           addRelationship(
             "calls",
             activeFunction,
-            node.callee.name
+            targetSymbol.name,
+            {
+              fromFilePath: relativeFilePath,
+              toFilePath: targetSymbol.filePath
+            }
           );
         }
 
