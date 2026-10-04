@@ -32,3 +32,7 @@ temp/
 
 # Uploaded/generated repository data
 uploads/
+
+# Repository processing data
+server/uploads/
+server/temp/
