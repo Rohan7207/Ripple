@@ -10,6 +10,13 @@ const IGNORED_DIRECTORIES = new Set([
   "coverage",
 ]);
 
+function isSensitiveFile(fileName) {
+  return (
+    fileName === ".env" ||
+    (fileName.startsWith(".env.") && fileName !== ".env.example")
+  );
+}
+
 export async function scanRepository(rootDir) {
   const files = [];
 
@@ -20,6 +27,10 @@ export async function scanRepository(rootDir) {
 
     for (const entry of entries) {
       if (IGNORED_DIRECTORIES.has(entry.name)) {
+        continue;
+      }
+
+      if (isSensitiveFile(entry.name)) {
         continue;
       }
 
