@@ -1,6 +1,9 @@
 import {
   createFromGithub,
   createFromZip,
+  getRepositoryById,
+  getRepositoryStatus,
+  getRepositoryFiles,
 } from "../services/repository.service.js";
 
 export async function createRepository(req, res, next) {
@@ -35,6 +38,51 @@ export async function createRepository(req, res, next) {
     error.code = "INVALID_REQUEST";
 
     throw error;
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getRepository(req, res, next) {
+  try {
+    const repository = getRepositoryById(req.params.repositoryId);
+
+    return res.json({
+      success: true,
+      data: {
+        repositoryId: repository.id,
+        source: repository.source,
+        status: repository.status,
+        createdAt: repository.createdAt,
+        totalFiles: repository.totalFiles ?? 0,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getRepositoryStatusController(req, res, next) {
+  try {
+    const status = getRepositoryStatus(req.params.repositoryId);
+
+    return res.json({
+      success: true,
+      data: status,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getRepositoryFilesController(req, res, next) {
+  try {
+    const data = getRepositoryFiles(req.params.repositoryId);
+
+    return res.json({
+      success: true,
+      data,
+    });
   } catch (error) {
     next(error);
   }

@@ -1,4 +1,5 @@
 import { createRepository } from "../stores/repository.store.js";
+import { getRepository } from "../stores/repository.store.js";
 
 import {
   generateRepositoryId,
@@ -60,4 +61,49 @@ export function createFromGithub(url) {
   createRepository(repository);
 
   return repository;
+}
+
+export function getRepositoryById(repositoryId) {
+  const repository = getRepository(repositoryId);
+
+  if (!repository) {
+    const error = new Error("Repository not found");
+    error.statusCode = 404;
+    error.code = "REPOSITORY_NOT_FOUND";
+    throw error;
+  }
+
+  return repository;
+}
+
+export function getRepositoryStatus(repositoryId) {
+  const repository = getRepository(repositoryId);
+
+  if (!repository) {
+    const error = new Error("Repository not found");
+    error.statusCode = 404;
+    error.code = "REPOSITORY_NOT_FOUND";
+    throw error;
+  }
+
+  return {
+    repositoryId: repository.id,
+    status: repository.status,
+  };
+}
+
+export function getRepositoryFiles(repositoryId) {
+  const repository = getRepository(repositoryId);
+
+  if (!repository) {
+    const error = new Error("Repository not found");
+    error.statusCode = 404;
+    error.code = "REPOSITORY_NOT_FOUND";
+    throw error;
+  }
+
+  return {
+    files: repository.files || [],
+    totalFiles: repository.totalFiles || 0,
+  };
 }
