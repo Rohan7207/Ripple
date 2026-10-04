@@ -3,10 +3,10 @@ import {
   createFromZip,
 } from "../services/repository.service.js";
 
-export function createRepository(req, res, next) {
+export async function createRepository(req, res, next) {
   try {
     if (req.file) {
-      const repository = createFromZip(req.file);
+      const repository = await createFromZip(req.file);
 
       return res.status(201).json({
         success: true,

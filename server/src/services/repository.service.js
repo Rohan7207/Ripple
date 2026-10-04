@@ -5,7 +5,10 @@ import {
   isValidGithubUrl,
 } from "../utils/repository.utils.js";
 
-export function createFromZip(file) {
+import { extractZip } from "../ingestion/repository.extractor.js";
+import { scanRepository } from "../ingestion/repository.scanner.js";
+
+export async function createFromZip(file) {
   if (!file) {
     const error = new Error("Missing ZIP file (field: file)");
     error.statusCode = 400;
@@ -22,7 +25,20 @@ export function createFromZip(file) {
 
   createRepository(repository);
 
-  return repository;
+  try {
+    const rootDir = await extractZip(file.buffer, repository.id);
+    const scan = await scanRepository(rootDir);
+
+    repository.rootDir = rootDir;
+    repository.files = scan.files;
+    repository.totalFiles = scan.totalFiles;
+    repository.status = "READY";
+
+    return repository;
+  } catch (error) {
+    repository.status = "FAILED";
+    throw error;
+  }
 }
 
 export function createFromGithub(url) {
