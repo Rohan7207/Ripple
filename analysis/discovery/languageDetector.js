@@ -1,4 +1,4 @@
-const path = require("path");
+import path from "node:path";
 
 const LANGUAGE_MAP = {
   ".js": "JavaScript",
@@ -30,12 +30,8 @@ const LANGUAGE_MAP = {
   ".yml": "YAML"
 };
 
-function detectLanguage(filePath) {
+export function detectLanguage(filePath) {
   const extension = path.extname(filePath).toLowerCase();
 
   return LANGUAGE_MAP[extension] || "Unknown";
 }
-
-module.exports = {
-  detectLanguage
-};

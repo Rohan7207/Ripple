@@ -1,7 +1,7 @@
-const fs = require("fs");
-const parser = require("@babel/parser");
+import fs from "node:fs";
+import * as parser from "@babel/parser";
 
-function extractSymbols(filePath, language) {
+export function extractSymbols(filePath, language) {
   if (!["JavaScript", "TypeScript"].includes(language)) {
     return [];
   }
@@ -10,7 +10,7 @@ function extractSymbols(filePath, language) {
 
   try {
     content = fs.readFileSync(filePath, "utf8");
-  } catch (error) {
+  } catch {
     return [];
   }
 
@@ -28,7 +28,7 @@ function extractSymbols(filePath, language) {
         "dynamicImport"
       ]
     });
-  } catch (error) {
+  } catch {
     return [];
   }
 
@@ -85,13 +85,19 @@ function extractSymbols(filePath, language) {
 
       case "ExportDefaultDeclaration":
         if (node.declaration) {
-          if (node.declaration.type === "FunctionDeclaration") {
+          if (
+            node.declaration.type === "FunctionDeclaration"
+          ) {
             addSymbol(
               node.declaration.id?.name || "default",
               "export",
               node
             );
-          } else if (node.declaration.type === "ClassDeclaration") {
+          }
+
+          if (
+            node.declaration.type === "ClassDeclaration"
+          ) {
             addSymbol(
               node.declaration.id?.name || "default",
               "export",
@@ -103,7 +109,11 @@ function extractSymbols(filePath, language) {
     }
 
     for (const key of Object.keys(node)) {
-      if (key === "loc" || key === "start" || key === "end") {
+      if (
+        key === "loc" ||
+        key === "start" ||
+        key === "end"
+      ) {
         continue;
       }
 
@@ -111,7 +121,10 @@ function extractSymbols(filePath, language) {
 
       if (Array.isArray(value)) {
         value.forEach(walk);
-      } else if (value && typeof value === "object") {
+      } else if (
+        value &&
+        typeof value === "object"
+      ) {
         walk(value);
       }
     }
@@ -121,7 +134,3 @@ function extractSymbols(filePath, language) {
 
   return symbols;
 }
-
-module.exports = {
-  extractSymbols
-};

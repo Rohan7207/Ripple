@@ -1,24 +1,12 @@
-const path = require("path");
+import path from "node:path";
 
 const SOURCE_EXTENSIONS = new Set([
-  ".js",
-  ".jsx",
-  ".mjs",
-  ".cjs",
-  ".ts",
-  ".tsx",
-  ".py",
-  ".java",
-  ".c",
-  ".h",
-  ".cpp",
-  ".hpp",
-  ".go",
-  ".rs",
-  ".php",
-  ".html",
-  ".css",
-  ".scss"
+  ".js", ".jsx", ".mjs", ".cjs",
+  ".ts", ".tsx",
+  ".py", ".java",
+  ".c", ".h", ".cpp", ".hpp",
+  ".go", ".rs", ".php",
+  ".html", ".css", ".scss"
 ]);
 
 const CONFIG_EXTENSIONS = new Set([
@@ -34,12 +22,11 @@ const DOCUMENTATION_EXTENSIONS = new Set([
   ".txt"
 ]);
 
-function classifyFile(filePath) {
+export function classifyFile(filePath) {
   const normalizedPath = filePath.replace(/\\/g, "/");
   const fileName = path.basename(normalizedPath).toLowerCase();
   const extension = path.extname(normalizedPath).toLowerCase();
 
-  // Documentation
   if (
     DOCUMENTATION_EXTENSIONS.has(extension) ||
     fileName.startsWith("readme")
@@ -47,7 +34,6 @@ function classifyFile(filePath) {
     return "documentation";
   }
 
-  // Configuration
   if (
     CONFIG_EXTENSIONS.has(extension) ||
     fileName === ".env.example" ||
@@ -58,14 +44,9 @@ function classifyFile(filePath) {
     return "configuration";
   }
 
-  // Source code
   if (SOURCE_EXTENSIONS.has(extension)) {
     return "source";
   }
 
   return "other";
 }
-
-module.exports = {
-  classifyFile
-};
