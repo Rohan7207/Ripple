@@ -10,11 +10,26 @@ function Landing() {
   const [githubUrl, setGithubUrl] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [error, setError] = useState("");
 
   const handleFileChange = (event) => {
     const file = event.target.files?.[0];
 
     if (!file) return;
+
+    setError("");
+    if (!file.name.toLowerCase().endsWith(".zip")) {
+      setSelectedFile(null);
+      setError("Please upload a valid .zip repository file.");
+      event.target.value = "";
+      return;
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      setSelectedFile(null);
+      setError("The ZIP file is too large. Please upload a file up to 50 MB.");
+      event.target.value = "";
+      return;
+    }
 
     setSelectedFile(file);
   };
@@ -29,34 +44,38 @@ function Landing() {
 
   const handleFileAnalyze = async () => {
     if (!selectedFile || isAnalyzing) return;
-
+    setError("");
     try {
       setIsAnalyzing(true);
-
-      const data = await createRepository({
-        file: selectedFile,
-      });
-
+      const data = await createRepository({ file: selectedFile });
       navigate(`/analysis?repositoryId=${data.repositoryId}`);
     } catch (error) {
       console.error("Failed to analyze repository:", error);
+      setError(
+        error?.message ||
+          "Ripple couldn't start repository analysis. Please try again.",
+      );
       setIsAnalyzing(false);
     }
   };
 
   const handleGithubAnalyze = async () => {
-    if (!githubUrl.trim() || isAnalyzing) return;
-
+    const url = githubUrl.trim();
+    if (!url || isAnalyzing) {
+      setError("Please enter a public GitHub repository URL.");
+      return;
+    }
+    setError("");
     try {
       setIsAnalyzing(true);
-
-      const data = await createRepository({
-        githubUrl: githubUrl.trim(),
-      });
-
+      const data = await createRepository({ githubUrl: url });
       navigate(`/analysis?repositoryId=${data.repositoryId}`);
     } catch (error) {
       console.error("Failed to analyze GitHub repository:", error);
+      setError(
+        error?.message ||
+          "Ripple couldn't access this repository. Make sure the URL is correct and the repository is public.",
+      );
       setIsAnalyzing(false);
     }
   };
@@ -297,12 +316,22 @@ function Landing() {
                   </div>
                 </div>
 
+                {error && (
+                  <div
+                    role="alert"
+                    className="mx-1 sm:mx-2 mb-3 rounded-md border border-red-400/20 bg-red-400/[0.05] px-4 py-3 text-sm text-red-300"
+                  >
+                    {" "}
+                    {error}{" "}
+                  </div>
+                )}
+
                 {/* Bottom info */}
                 <div className="mt-3 pt-3 border-t border-white/[0.07] px-3 pb-3">
                   <div className="flex flex-wrap justify-between gap-3 text-[11px] font-mono text-slate-600">
                     <span>.zip up to 50 MB · public GitHub repos</span>
 
-                    <span>JS · TS · JSX · TSX · JSON</span>
+                    <span>Deep analysis: JS · TS · JSX · TSX · JSON</span>
                   </div>
                 </div>
               </div>

@@ -45,7 +45,12 @@ function Analysis() {
       stages: ["ANALYZING_RELATIONSHIPS"],
       icon: Network,
     },
-
+    {
+      title: "Graph construction",
+      description: "Connecting repository components for code analysis",
+      stages: ["BUILDING_GRAPH"],
+      icon: Network,
+    },
     {
       title: "Finalizing insights",
       description: "Preparing the repository for exploration",
