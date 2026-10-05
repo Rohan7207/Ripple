@@ -19,60 +19,14 @@ Ripple — AI Specification
    These capabilities are coordinated through a single AI Orchestrator rather than multiple
    autonomous agents.
 
-7. AI Architecture
-   User Question / Scenario
-   │
-   ▼
-   AI Orchestrator
-   │
-   ▼
-   Context Retrieval
-   │
-   ┌─────┼─────────────┐
-   ▼ ▼ ▼
-   Symbols Graph Source Snippets
-   │ │ │
-   └─────┼─────────────┘
-   ▼
-   LLM Layer
-   │
-   ▼
-   Structured AI Response
-   │
-   ▼
-   Frontend UI
-   Responsibilities
-   Deterministic Analysis
-   Responsible for:
-   • Repository structure
-   • File discovery
-   • Language detection
-   • Symbol extraction
-   • Import/export relationships
-   • Function/class/component relationships
-   • API endpoint discovery where supported
-   • Dependency relationships
-   • Repository graph construction
-   • Source locations
-   • Analysis warnings and coverage
-   AI Layer
-   Responsible for:
-   • Understanding repository context
-   • Explaining architecture
-   • Answering natural-language questions
-   • Interpreting graph relationships
-   • Explaining impact
-   • Reasoning about hypothetical changes
-   • Generating implementation plans
-   • Communicating uncertainty
-8. AI Orchestrator
+7. AI Orchestrator
    The AI Orchestrator is the single entry point for AI-powered operations.
    It determines:
-9. What the user is asking.
-10. Which repository information is relevant.
-11. Which files, symbols, graph relationships, and source snippets are required.
-12. Which AI capability should process the request.
-13. What structured response should be returned.
+8. What the user is asking.
+9. Which repository information is relevant.
+10. Which files, symbols, graph relationships, and source snippets are required.
+11. Which AI capability should process the request.
+12. What structured response should be returned.
     The orchestrator should avoid sending unnecessary repository content to the LLM.
     Conceptual flow
     Request
@@ -88,7 +42,7 @@ Ripple — AI Specification
     Validate structured output
     ↓
     Return response
-14. Context Retrieval
+13. Context Retrieval
     AI context should be retrieved from deterministic repository analysis.
     Relevant context may include:
     • Repository metadata
@@ -115,7 +69,7 @@ Ripple — AI Specification
     Ripple should retrieve the relevant request flow, controllers/routes, services, AI processing,
     database interactions, and related frontend components rather than sending every repository
     file to the LLM.
-15. AI Context Structure
+14. AI Context Structure
     The AI layer should conceptually receive structured context similar to:
     Repository Metadata
     ├── Repository name
@@ -143,31 +97,8 @@ Ripple — AI Specification
     ├── Requested analysis
     └── Hypothetical change (if applicable)
     The exact internal implementation may evolve without changing the AI contract.
-16. Repository Understanding
-    Repository Understanding explains how the repository works.
-    It can answer questions such as:
-    • What is the architecture of this repository?
-    • How is authentication implemented?
-    • How does data flow from frontend to backend?
-    • Which modules handle a particular feature?
-    • Where is a particular API implemented?
-    • What are the major components of the system?
-    • How are different modules connected?
-    Expected reasoning process
-    Repository Structure
-    ↓
-    Relevant Graph
-    ↓
-    Relevant Symbols
-    ↓
-    Source Evidence
-    ↓
-    AI Explanation
-    The response should distinguish between:
-    • Observed evidence — directly supported by repository analysis.
-    • Interpretation — explanation derived from the evidence.
-    • Uncertainty — areas where the repository does not provide enough evidence.
-17. Ask Ripple
+
+15. Ask Ripple
     Ask Ripple allows users to ask natural-language questions about the repository.
     Examples:
     "Where is authentication handled?"
@@ -195,7 +126,7 @@ Ripple — AI Specification
     • Avoid unsupported claims.
     • Clearly communicate uncertainty.
     • Provide source references that the UI can make clickable.
-18. Evidence and Sources
+16. Evidence and Sources
     AI responses should be grounded in repository evidence.
     Where possible, responses should identify:
     • File path
@@ -210,7 +141,7 @@ Ripple — AI Specification
     which generates the authentication token.
     Evidence: - auth.controller.ts - auth.service.ts - middleware/auth.middleware.ts
     The frontend should be able to navigate from an AI answer to the corresponding repository item.
-19. Impact Analysis
+17. Impact Analysis
     Impact Analysis determines what could be affected by a proposed change.
     The analysis should combine:
     Deterministic Graph Analysis
@@ -232,7 +163,7 @@ Ripple — AI Specification
     Core Principle
     The graph provides evidence of relationships; AI explains the consequences.
     AI should not invent dependencies that are absent from the analyzed repository.
-20. Impact Categories
+18. Impact Categories
     Impact results should be grouped into:
     Direct Impact
     Files or components directly connected to the changed element.
@@ -246,9 +177,8 @@ Ripple — AI Specification
     MEDIUM
     LOW
     Confidence must be qualitative.
-    Ripple should not present artificial percentage confidence values unless a future calibrated
-    confidence system is explicitly introduced.
-21. What-If Analysis
+
+19. What-If Analysis
     What-If allows users to explore hypothetical changes without modifying the repository.
     Examples:
     "What if authentication changes from JWT to sessions?"
@@ -274,7 +204,7 @@ Considerations
 ↓
 Implementation Plan
 
-13. What-If Response Structure
+20. What-If Response Structure
     A What-If response should contain:
     Scenario
     A concise restatement of the proposed change.
@@ -288,24 +218,22 @@ Implementation Plan
     A practical sequence of changes referencing real repository paths where possible.
     Uncertainty
     Areas where the repository does not provide enough evidence.
-    What-If is hypothetical analysis only.
-    It must not modify files, create commits, or automatically apply changes.
-14. Implementation Plans
+21. Implementation Plans
     When AI generates an implementation plan, it should reference real repository structures
     whenever possible.
     Example:
-15. Update authentication logic
+22. Update authentication logic
     → src/services/auth.service.ts
-16. Update authentication middleware
+23. Update authentication middleware
     → src/middleware/auth.middleware.ts
-17. Update frontend authentication state
+24. Update frontend authentication state
     → src/context/AuthContext.tsx
-18. Update affected API consumers
+25. Update affected API consumers
     → src/services/api.ts
     Plans should be derived from repository evidence.
     If a required location cannot be established, Ripple should explicitly say so rather than inventing
     a path.
-19. Structured AI Responses
+26. Structured AI Responses
     AI output should use structured data rather than arbitrary free-form responses wherever
     possible.
     This allows the frontend to consistently render:
@@ -317,19 +245,8 @@ Implementation Plan
     • Considerations
     • Implementation steps
     • Warnings
-    A conceptual response may look like:
-    {
-    }
-    "summary": "...",
-    "explanation": "...",
-    "sources": [],
-    "affectedAreas": [],
-    "considerations": [],
-    "implementationPlan": [],
-    "confidence": "HIGH",
-    "warnings": []
-    The exact API response schemas are defined separately in API_CONTRACT.md.
-20. Uncertainty Handling
+
+27. Uncertainty Handling
     Ripple must not pretend to know something that cannot be established from repository
     evidence.
     When evidence is insufficient, AI should communicate this explicitly.
@@ -344,7 +261,7 @@ Implementation Plan
     and:
     Unknown / Insufficient Evidence
     This is especially important for Impact and What-If analysis.
-21. AI Guardrails
+28. AI Guardrails
     The AI layer must follow these principles:
     No Hallucinated Repository Facts
     Do not invent:
@@ -369,7 +286,7 @@ Implementation Plan
     The MVP produces explanations and plans only.
     No Blind Full-Repository Prompting
     The LLM should receive relevant context rather than the complete repository by default.
-22. Security and Sensitive Information
+29. Security and Sensitive Information
     Sensitive information must not be unnecessarily exposed to the AI model or displayed in the UI.
     Potential sensitive content includes:
     • API keys
@@ -384,7 +301,7 @@ Implementation Plan
     [REDACTED]
     rather than exposing the actual value.
     The AI layer should receive only the minimum information necessary for analysis.
-23. Unsupported Languages
+30. Unsupported Languages
     Ripple's deep structural analysis is optimized for JavaScript and TypeScript in the MVP.
     Repositories containing unsupported languages should still be handled gracefully.
     The system may provide:
@@ -398,7 +315,7 @@ Implementation Plan
     This repository contains Python files that are not fully supported
     by the current structural analyzer. The following explanation is
     based on available repository structure and supported relationships.
-24. Partial Analysis
+31. Partial Analysis
     AI must account for incomplete repository analysis.
     If analysis coverage is partial:
     Analysis Coverage
@@ -410,7 +327,7 @@ Implementation Plan
     This impact analysis is based on the analyzed JavaScript/TypeScript
     files. Some dependencies may be missing because portions of the
     repository could not be structurally analyzed.
-25. AI Provider Abstraction
+32. AI Provider Abstraction
     The AI provider should be accessed through an abstraction layer.
     Conceptually:
     AI Orchestrator
@@ -421,7 +338,7 @@ Implementation Plan
     The rest of Ripple should not depend directly on a specific AI provider or model.
     This allows the underlying model/provider to be changed without redesigning the AI
     architecture.
-26. AI Failure Handling
+33. AI Failure Handling
     AI failures should not cause the entire repository analysis to fail.
     Possible failures include:
     • Provider unavailable
@@ -435,37 +352,8 @@ Implementation Plan
     Example:
     Repository analysis is available, but AI analysis is temporarily
     unavailable. You can continue exploring the repository manually.
-27. AI vs Deterministic Responsibilities
-    Responsibility
-    Discover files
-    Detect supported languages
-    Extract symbols
-    Build dependency graph
-    Identify imports
-    Identify relationships
-    Explain architecture  
-    Answer natural-language questions  
-    Interpret relationships  
-    Explain impact  
-    Reason about hypothetical changes  
-    Generate implementation plan  
-    Determine repository facts
-    Modify code  
-    Deterministic Analysis AI
-    ✓  
-    ✓  
-    ✓  
-    ✓  
-    ✓  
-    ✓  
-    ✓
-    ✓
-    ✓
-    ✓
-    ✓
-    ✓
-    ✓
-28. Core Design Principle
+
+34. Core Design Principle
     Ripple's AI architecture follows one central rule:
     Facts come from deterministic repository analysis. Meaning and reasoning come from AI.
     This separation improves:
@@ -476,7 +364,7 @@ Implementation Plan
     • Debuggability
     • Provider flexibility
     It also prevents the AI layer from becoming the sole source of truth about the repository.
-29. MVP Boundary
+35. MVP Boundary
     Included
     • Repository understanding
     • Ask Ripple
@@ -500,15 +388,15 @@ Implementation Plan
     • Long-running autonomous tasks
     • Training a custom foundation model
     • Persistent conversational memory across repositories
-30. Success Criteria
+36. Success Criteria
     The AI system is successful when a developer can:
-31. Upload an unfamiliar repository.
-32. Understand its major architecture through Ripple.
-33. Ask natural-language questions about the codebase.
-34. Trace relevant relationships using repository evidence.
-35. Understand what areas may be affected by a change.
-36. Explore hypothetical changes before implementing them.
-37. Receive implementation guidance grounded in actual repository paths.
-38. Clearly distinguish repository facts from AI interpretation.
-39. Understand when Ripple does not have enough evidence.
-40. Explore the repository without Ripple modifying their code.
+37. Upload an unfamiliar repository.
+38. Understand its major architecture through Ripple.
+39. Ask natural-language questions about the codebase.
+40. Trace relevant relationships using repository evidence.
+41. Understand what areas may be affected by a change.
+42. Explore hypothetical changes before implementing them.
+43. Receive implementation guidance grounded in actual repository paths.
+44. Clearly distinguish repository facts from AI interpretation.
+45. Understand when Ripple does not have enough evidence.
+46. Explore the repository without Ripple modifying their code.

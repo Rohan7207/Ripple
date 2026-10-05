@@ -42,7 +42,6 @@ function Impact() {
     try {
       const result = await analyzeRepositoryImpact(repositoryId, trimmedTarget);
 
-      console.log("IMPACT RESPONSE:", result);
       setImpact(result);
     } catch (error) {
       console.error("Impact analysis failed:", error);

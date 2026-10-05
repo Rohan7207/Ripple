@@ -23,7 +23,6 @@ app.get("/api/health", (req, res) => {
 });
 
 app.use((req, res, next) => {
-  console.log("REQUEST:", req.method, req.originalUrl);
   next();
 });
 

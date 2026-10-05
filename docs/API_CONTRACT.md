@@ -215,89 +215,35 @@ Ripple — API Contract
    }
    Sensitive values filtered during repository processing must not be returned.
 
-9. Get Repository Graph
-   Returns the structured repository graph used by the architecture explorer.
+9. Ask Ripple
+   Allows users to ask questions about the analyzed repository.
    Endpoint
-   GET /api/repositories/:repositoryId/graph
-   Response
+   POST /api/repositories/:repositoryId/ask
+   Request
+   {
+   "question": "Where is authentication handled?"
+   }
+   Success Response
    {
    "success": true,
    "data": {
-   "nodes": [
+   "answer": "Authentication is primarily handled through ...",
+   "sources": [
    {
-   "id": "file_1",
-   "type": "file",
-   "label": "App.jsx",
-   "path": "src/App.jsx"
-   },
-   {
-   "id": "file_2",
-   "type": "file",
-   "label": "api.js",
-   "path": "src/services/api.js"
+   "fileId": "file_12",
+   "path": "src/middleware/auth.js",
+   "lines": {
+   "start": 10,
+   "end": 42
    }
-   ],
-   "edges": [
-   {
-   "id": "edge_1",
-   "source": "file_1",
-   "target": "file_2",
-   "type": "imports"
    }
    ]
    }
    }
-10. Graph Node Types
-    The initial graph can represent:
-    repository
-    directory
-    file
-    function
-    class
-    component
-    api
-    module
-    The exact set may expand as analysis capabilities grow.
-11. Graph Relationship Types
-    Examples include:
-    imports
-    exports
-    calls
-    references
-    renders
-    depends_on
-    exposes
-    Only relationships actually established by the analysis pipeline should be represented as
-    deterministic graph relationships.
-12. Ask Ripple
-    Allows users to ask questions about the analyzed repository.
-    Endpoint
-    POST /api/repositories/:repositoryId/ask
-    Request
-    {
-    "question": "Where is authentication handled?"
-    }
-    Success Response
-    {
-    "success": true,
-    "data": {
-    "answer": "Authentication is primarily handled through ...",
-    "sources": [
-    {
-    "fileId": "file_12",
-    "path": "src/middleware/auth.js",
-    "lines": {
-    "start": 10,
-    "end": 42
-    }
-    }
-    ]
-    }
-    }
-    The answer should be grounded in repository context.
-    Sources identify the repository elements used to support the response.
+   The answer should be grounded in repository context.
+   Sources identify the repository elements used to support the response.
 
-13. Ask Ripple Validation
+10. Ask Ripple Validation
     The backend should reject invalid requests such as:
     {
     "question": ""
@@ -311,7 +257,7 @@ Ripple — API Contract
     }
     }
 
-14. Impact Analysis
+11. Impact Analysis
     Analyzes the potential effect of a proposed change.
     Endpoint
     POST /api/repositories/:repositoryId/impact
@@ -351,7 +297,7 @@ Ripple — API Contract
     The API must distinguish repository relationships discovered deterministically from AI
     generated interpretation.
 
-15. What-If Analysis
+12. What-If Analysis
     Analyzes a hypothetical architectural or implementation change without modifying the
     repository.
     Endpoint
@@ -402,7 +348,7 @@ Ripple — API Contract
     }
     The What-If operation is advisory and does not modify repository contents.
 
-16. Implementation Plan Structure
+13. Implementation Plan Structure
     Where an implementation plan is returned, the structure should remain predictable.
     {
     "implementationPlan": [
@@ -419,7 +365,7 @@ Ripple — API Contract
     The plan describes changes the developer may make.
     It does not represent changes already applied to the repository.
 
-17. Common Error Format
+14. Common Error Format
     All endpoints use:
     {
     "success": false,
@@ -428,7 +374,7 @@ Ripple — API Contract
     "message": "Human-readable message"
     }
     }
-18. Error Codes
+15. Error Codes
     Initial error codes include:
     Code
     INVALID_REQUEST
@@ -457,7 +403,7 @@ Ripple — API Contract
     What-If scenario is invalid
     AI operation failed
     Unexpected backend error
-19. HTTP Status Usage
+16. HTTP Status Usage
     Status
     200 OK
     201 Created
@@ -478,7 +424,7 @@ Ripple — API Contract
     External AI/provider failure where applicable
     The frontend should primarily use the error.code rather than relying on HTTP status alone for
     user-facing behavior.
-20. Repository Readiness Rules
+17. Repository Readiness Rules
     Operations that require completed repository analysis must verify repository state.
     For example:
     GET /graph
@@ -495,7 +441,7 @@ Ripple — API Contract
     "code": "ANALYSIS_NOT_READY",
     "message": "Repository analysis is still in progress."
     }
-21. Partial Analysis
+18. Partial Analysis
     A repository can reach:
     READY
     while still having partial analysis.
@@ -512,7 +458,7 @@ Ripple — API Contract
     The API should continue returning successfully analyzed data.
     Partial analysis must not be represented as complete certainty.
 
-22. Security Contract
+19. Security Contract
     The API must never expose detected secrets.
     Sensitive values discovered during processing must be removed or masked before:
     • AI context creation
@@ -524,7 +470,7 @@ Ripple — API Contract
     Repository source returned through the API must pass through the same security controls
     established by the architecture.
 
-23. AI Response Grounding
+20. AI Response Grounding
     AI-powered endpoints should provide repository references whenever applicable.
     For example:
     {
@@ -542,14 +488,14 @@ Ripple — API Contract
     This allows the frontend to connect AI explanations back to actual repository elements.
     AI-generated conclusions should not be represented as deterministic graph facts unless the
     analysis pipeline has established those relationships.
-24. Repository Identification
+21. Repository Identification
     Every repository-scoped endpoint uses:
     :repositoryId
     Example:
     /api/repositories/repo_123/graph
     The repository ID represents the active analysis session.
     The frontend must retain the ID after repository creation and use it for subsequent requests.
-25. API Surface Summary
+22. API Surface Summary
     The MVP API consists of:
     GET /api/health
     POST /api/repositories
@@ -557,7 +503,6 @@ Ripple — API Contract
     GET /api/repositories/:repositoryId/status
     GET /api/repositories/:repositoryId/files
     GET /api/repositories/:repositoryId/files/:fileId
-    GET /api/repositories/:repositoryId/graph
     POST /api/repositories/:repositoryId/ask
     POST /api/repositories/:repositoryId/impact
     POST /api/repositories/:repositoryId/what-if
@@ -566,7 +511,7 @@ Ripple — API Contract
     GET /api/repositories/:repositoryId
     acts as the starting point for the Repository Workspace.
 
-26. API Flow
+23. API Flow
     The complete frontend/backend interaction is:
     ┌───────────────┐
     │ User │
@@ -584,33 +529,29 @@ Ripple — API Contract
     │
     READY
     │
-    ┌────────────┼────────────┐
+    ├──────────────┬──────────────┐
     ▼ ▼ ▼
-    Repository Graph Files
-    Overview
+    Overview Files AI Analysis
     │
-    ┌─────┴───────────────┐
-    ▼ ▼
-    Ask Ripple What-If
-    │
-    ▼
-    Impact Analysis
+    ┌─────────┼─────────┐
+    ▼ ▼ ▼
+    Ask Impact What-If
 
-27. Contract Principles
+24. Contract Principles
     The API contract follows these principles:
-28. Repository-centric — all analysis capabilities belong to a repository session.
-29. Small MVP surface — expose capabilities rather than internal modules.
-30. Consistent responses — use a common success/error envelope.
-31. Async analysis — repository processing does not block the initial upload request.
-32. Structured data — graph and analysis results use predictable schemas.
-33. AI is isolated — frontend does not communicate directly with the AI provider.
-34. Evidence-aware — AI responses can reference repository files and symbols.
-35. No automatic code modification — the API only analyzes and generates plans.
-36. Graceful degradation — partial repository analysis is supported.
-37. Security by boundary — secrets are filtered before reaching AI or user-facing
+25. Repository-centric — all analysis capabilities belong to a repository session.
+26. Small MVP surface — expose capabilities rather than internal modules.
+27. Consistent responses — use a common success/error envelope.
+28. Async analysis — repository processing does not block the initial upload request.
+29. Structured data — graph and analysis results use predictable schemas.
+30. AI is isolated — frontend does not communicate directly with the AI provider.
+31. Evidence-aware — AI responses can reference repository files and symbols.
+32. No automatic code modification — the API only analyzes and generates plans.
+33. Graceful degradation — partial repository analysis is supported.
+34. Security by boundary — secrets are filtered before reaching AI or user-facing
     responses.
 
-38. Contract Boundary
+35. Contract Boundary
     The responsibility of each layer is:
     Frontend
     │

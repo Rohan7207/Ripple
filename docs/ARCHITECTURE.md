@@ -257,100 +257,23 @@ values that must remain inaccessible.
     • Repository-level relationships that can be determined safely
     This allows Ripple to analyze mixed-language repositories without claiming unsupported
     semantic understanding.
-11. Structural Extraction
-    For JavaScript/TypeScript repositories, Ripple uses structured parsing and extraction.
-    The architecture can use Tree-sitter and/or suitable language parsers for deterministic source
-    analysis.
-    Extracted Entities
-    Repository
-    ├── Directory
-    ├── File
-    ├── Function
-    ├── Class
-    ├── Component
-    ├── API Route
-    ├── Import
-    ├── Export
-    └── Reference
-    Example
-    Dashboard.jsx
-    │
-    ├── imports → UserContext
-    ├── imports → dashboardService
-    ├── uses → FinancialChart
-    └── calls → /dashboard API
-    These relationships become graph edges.
-12. Repository Graph
-    The repository graph is the central representation used by Ripple.
-    Nodes
-    Nodes may represent:
-    • Files
-    • Functions
-    • Classes
-    • Components
-    • API endpoints
-    • Modules
-    • Other extracted repository entities
-    Edges
-    Edges may represent:
-    • Imports
-    • Exports
-    • Calls
-    • References
-    • Component relationships
-    • API relationships
-    • Dependency relationships
-    Example:
-    [Dashboard.jsx]
-    │
-    ├── imports ──────► [DashboardService]
-    │
-    ├── renders ──────► [FinancialChart]
-    │
-    └── calls ────────► [GET /dashboard]
-    The graph should support expansion from high-level repository structure into more detailed
-    relationships.
 
-13. Graph Strategy
-    The graph is designed to be high-level by default and expandable on demand.
-    Instead of presenting every extracted relationship simultaneously, the UI can begin with:
-    Repository
-    ↓
-    Directories / Major Modules
-    ↓
-    Files
-    ↓
-    Symbols / Components
-    ↓
-    Detailed Dependencies
-    This prevents large repositories from becoming visually unusable.
-    The backend provides graph data while the frontend handles interactive visualization.
-    React Flow is suitable for the graph visualization layer.
-
-14. Impact Analysis
+11. Impact Analysis
     Impact analysis determines which repository elements may be affected by a proposed change.
     Proposed Change
     │
     ▼
-    Target Entity
+    Relevant Repository Context
     │
     ▼
-    Graph Traversal
+    AI Analysis
     │
     ▼
-    Direct Dependencies
+    Affected Areas
     │
     ▼
-    Transitive Dependencies
-    │
-    ▼
-    Potential Impact Set
-    │
-    ▼
-    AI Explanation
-    │
-    ▼
-    Implementation Plan
+    Explanation
+
     The graph provides the structural evidence.
     AI is responsible for interpreting that evidence and explaining likely consequences.
     Ripple should distinguish between:
@@ -359,7 +282,7 @@ values that must remain inaccessible.
     • Related but uncertain elements
     The system should avoid presenting inferred impact as guaranteed impact.
 
-15. Ask Ripple
+12. Ask Ripple
     Ask Ripple provides repository-aware conversational interaction.
     User Question
     │
@@ -370,12 +293,7 @@ values that must remain inaccessible.
     Query Understanding
     │
     ▼
-    Relevant Repository Context
-    │
-    ├── Graph
-    ├── File metadata
-    ├── Extracted symbols
-    └── Relevant source context
+    Relevant repository context
     │
     ▼
     AI Orchestrator
@@ -386,7 +304,7 @@ values that must remain inaccessible.
     Instead, Ripple should retrieve relevant structured context based on the question.
     This keeps the AI interaction focused and reduces unnecessary token usage.
 
-16. What-If Analysis
+13. What-If Analysis
     What-If allows the user to describe a proposed architectural or code change without actually
     applying it.
     Example:
@@ -400,10 +318,7 @@ values that must remain inaccessible.
     Identify Relevant Entities
     │
     ▼
-    Traverse Repository Graph
-    │
-    ▼
-    Identify Potentially Affected Areas
+    Identify Relevant Repository Areas
     │
     ▼
     AI Reasoning
@@ -416,16 +331,13 @@ values that must remain inaccessible.
     The result is advisory.
     Ripple does not automatically modify the repository.
 
-17. AI Orchestration Layer
+14. AI Orchestration Layer
     The AI Orchestrator provides a common interface between application logic and AI capabilities.
     Conceptual interface:
     analyzeRepositoryContext()
     analyzeImpact()
     answerRepositoryQuestion()
     analyzeWhatIf()
-    generateImplementationPlan()
-    Each capability receives structured repository context instead of unrestricted repository
-    access.
     AI Context
     AI context may contain:
     Repository Metadata
@@ -437,7 +349,7 @@ values that must remain inaccessible.
   The AI layer should return structured results wherever possible so that the backend can validate
   and present them consistently.
 
-18. AI Responsibility Boundary
+15. AI Responsibility Boundary
     Deterministic Systems
     Responsible for:
     • File discovery
@@ -460,7 +372,7 @@ values that must remain inaccessible.
     • Expose detected secrets.
     • Automatically modify repository code.
     • Replace deterministic structural analysis where deterministic analysis is available.
-19. Data Architecture
+16. Data Architecture
     For the hackathon MVP, repository analysis state can be maintained using in-memory/session
     storage.
     Conceptually:
@@ -475,7 +387,7 @@ values that must remain inaccessible.
     This keeps the implementation simple and suitable for the hackathon scope.
     A persistent database is not required for the core MVP unless later implementation
     requirements make it necessary.
-20. Session Lifecycle
+17. Session Lifecycle
     Created
     │
     ▼
@@ -496,7 +408,7 @@ values that must remain inaccessible.
     │
     └──────────────► What-If
     A session represents one analyzed repository context.
-21. API Boundary
+18. API Boundary
     The frontend communicates only with the backend API.
     React
     │
@@ -511,7 +423,7 @@ values that must remain inaccessible.
     ├── Ask Ripple APIs
     └── What-If APIs
     Detailed request/response contracts are intentionally defined separately in API_CONTRACT.md.
-22. Error Handling
+19. Error Handling
     The architecture treats failures at each stage independently.
     Repository Errors
     Examples:
@@ -534,7 +446,7 @@ values that must remain inaccessible.
     A failure to deeply analyze one file should not unnecessarily invalidate the entire repository
     analysis.
     Where possible, Ripple should return partial analysis with an indication of reduced coverage.
-23. Partial Analysis Model
+20. Partial Analysis Model
     Ripple should distinguish between:
     FULL ANALYSIS
     and
@@ -547,7 +459,7 @@ values that must remain inaccessible.
     The system should preserve successfully extracted information instead of discarding the entire
     analysis.
 
-24. Deployment Architecture
+21. Deployment Architecture
     The MVP deployment can use a simple three-part structure:
     ┌─────────────────┐
     │ React Frontend │
@@ -570,7 +482,7 @@ values that must remain inaccessible.
     The analysis engine and AI orchestration layer can remain modules within the backend
     application.
 
-25. Request Flow — Repository Analysis
+22. Request Flow — Repository Analysis
     User
     │
     │ Upload Repository
@@ -610,7 +522,7 @@ values that must remain inaccessible.
     ▼
     Repository Explorer
 
-26. Request Flow — Ask Ripple
+23. Request Flow — Ask Ripple
     User Question
     │
     ▼
@@ -645,7 +557,7 @@ values that must remain inaccessible.
     ▼
     React
 
-27. Request Flow — What-If
+24. Request Flow — What-If
     Proposed Change
     │
     ▼
@@ -669,29 +581,8 @@ values that must remain inaccessible.
     ▼
     Implementation Plan
     No repository modification occurs in this flow.
-28. Technology Responsibilities
-    Layer
-    Frontend
-    Graph UI
-    Backend
-    Parsing
-    Responsibility
-    UI and visualization
-    Interactive graph
-    API and orchestration
-    Technology
-    React
-    React Flow
-    Node.js + Express
-    Structural source analysis Tree-sitter / language parsers
-    Repository State MVP session state
-    AI Layer
-    In-memory storage
-    Reasoning and synthesis LLM through AI provider
-    Graph Model
-    Repository relationships Application-level graph structure
-    Technology choices should remain replaceable behind application interfaces where practical.
-29. Architectural Trade-offs
+
+25. Architectural Trade-offs
     In-Memory State vs Persistent Database
     Chosen: In-memory/session state for MVP.
     Reason:
@@ -722,20 +613,8 @@ values that must remain inaccessible.
     • Keeps user control over repository changes.
     • Reduces risk of unintended modifications.
     • Fits the product's architecture-understanding objective.
-30. Extensibility
-    The architecture allows future capabilities without changing the fundamental repository
-    analysis pipeline.
-    Potential future extensions include:
-    • Additional programming-language analyzers.
-    • Persistent repository history.
-    • More advanced semantic indexing.
-    • Pull-request analysis.
-    • Git history analysis.
-    • Deeper test coverage relationships.
-    • More sophisticated architectural pattern detection.
-    • Code-generation workflows with explicit user approval.
-    These are outside the current MVP architecture.
-31. Architecture Summary
+
+26. Architecture Summary
     Ripple follows a simple principle:
     STRUCTURE FIRST
     ↓

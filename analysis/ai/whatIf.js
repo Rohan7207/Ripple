@@ -1,4 +1,4 @@
-import { GroqProvider } from "./groqProvider.js";
+import { GeminiProvider } from "./geminiProvider.js";
 import { retrieveContext } from "../context/contextRetriever.js";
 import { parseAIResponse } from "./aiResponse.js";
 
@@ -9,12 +9,19 @@ export async function analyzeWhatIf(analysis, scenario) {
 
   const context = retrieveContext(analysis, scenario);
 
-  const whatIfContext = {
+  const aiContext = {
     ...context,
-    sourceSnippets: context.sourceSnippets?.slice(0, 3) || [],
+    files: context.files?.slice(0, 3) || [],
+    symbols: context.symbols?.slice(0, 10) || [],
+    relationships: context.relationships?.slice(0, 10) || [],
+    sourceSnippets: context.sourceSnippets?.slice(0, 2) || [],
+    graph: {
+      nodes: context.graph?.nodes?.slice(0, 10) || [],
+      edges: context.graph?.edges?.slice(0, 10) || [],
+    },
   };
 
-  const provider = new GroqProvider();
+  const provider = new GeminiProvider();
 
   const prompt = `
 You are Ripple, a repository change-impact assistant.
@@ -26,7 +33,7 @@ WHAT-IF SCENARIO:
 ${scenario}
 
 REPOSITORY CONTEXT:
-${JSON.stringify(whatIfContext, null, 2)}
+${JSON.stringify(aiContext, null, 2)}
 
 Rules:
 

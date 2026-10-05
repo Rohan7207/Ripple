@@ -1,25 +1,27 @@
-import { GroqProvider } from "./groqProvider.js";
+import { GeminiProvider } from "./geminiProvider.js";
 import { retrieveContext } from "../context/contextRetriever.js";
 import { parseAIResponse } from "./aiResponse.js";
 
-export async function analyzeImpact(
-  analysis,
-  target
-) {
+export async function analyzeImpact(analysis, target) {
   if (!target || !target.trim()) {
-    throw new Error(
-      "Impact target is required"
-    );
+    throw new Error("Impact target is required");
   }
 
-  const context =
-    retrieveContext(
-      analysis,
-      target
-    );
+  const context = retrieveContext(analysis, target);
 
-  const provider =
-    new GroqProvider();
+  const aiContext = {
+    ...context,
+    files: context.files?.slice(0, 3) || [],
+    symbols: context.symbols?.slice(0, 10) || [],
+    relationships: context.relationships?.slice(0, 10) || [],
+    sourceSnippets: context.sourceSnippets?.slice(0, 2) || [],
+    graph: {
+      nodes: context.graph?.nodes?.slice(0, 10) || [],
+      edges: context.graph?.edges?.slice(0, 10) || [],
+    },
+  };
+
+  const provider = new GeminiProvider();
 
   const prompt = `
 You are Ripple, a repository impact-analysis assistant.
@@ -31,11 +33,7 @@ REQUESTED CHANGE:
 ${target}
 
 REPOSITORY CONTEXT:
-${JSON.stringify(
-  context,
-  null,
-  2
-)}
+${JSON.stringify(aiContext, null, 2)}
 
 Rules:
 
@@ -74,30 +72,22 @@ Return JSON with this structure:
 }
 `;
 
-  const answer =
-    await provider.generate(
-      prompt,
-      {
-        temperature: 0
-      }
-    );
+  const answer = await provider.generate(prompt, {
+    temperature: 0,
+  });
 
-  const result =
-    parseAIResponse(
-      answer,
-      {
-        summary: "",
-        affectedFiles: [],
-        affectedSymbols: [],
-        relationships: [],
-        risks: [],
-        confidence: "LOW"
-      }
-    );
+  const result = parseAIResponse(answer, {
+    summary: "",
+    affectedFiles: [],
+    affectedSymbols: [],
+    relationships: [],
+    risks: [],
+    confidence: "LOW",
+  });
 
   return {
     target,
     result,
-    context
+    context,
   };
 }

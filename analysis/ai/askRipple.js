@@ -1,22 +1,26 @@
-import { GroqProvider } from "./groqProvider.js";
+import { GeminiProvider } from "./geminiProvider.js";
 import { retrieveContext } from "../context/contextRetriever.js";
 
-export async function askRipple(
-  analysis,
-  question
-) {
+export async function askRipple(analysis, question) {
   if (!question || !question.trim()) {
     throw new Error("Question is required");
   }
 
-  const context =
-    retrieveContext(
-      analysis,
-      question
-    );
+  const context = retrieveContext(analysis, question);
 
-  const provider =
-    new GroqProvider();
+  const aiContext = {
+    ...context,
+    files: context.files?.slice(0, 3) || [],
+    symbols: context.symbols?.slice(0, 10) || [],
+    relationships: context.relationships?.slice(0, 10) || [],
+    sourceSnippets: context.sourceSnippets?.slice(0, 2) || [],
+    graph: {
+      nodes: context.graph?.nodes?.slice(0, 10) || [],
+      edges: context.graph?.edges?.slice(0, 10) || [],
+    },
+  };
+
+  const provider = new GeminiProvider();
 
   const prompt = `
 You are Ripple, an AI repository analysis assistant.
@@ -57,11 +61,7 @@ USER QUESTION:
 ${question}
 
 REPOSITORY CONTEXT:
-${JSON.stringify(
-  context,
-  null,
-  2
-)}
+${JSON.stringify(aiContext, null, 2)}
 `;
 
   const answer = await provider.generate(prompt, {
