@@ -1,4 +1,4 @@
-import { GeminiProvider } from "./geminiProvider.js";
+import { OpenRouterProvider } from "./openRouterProvider.js";
 import { retrieveContext } from "../context/contextRetriever.js";
 
 export async function askRipple(analysis, question) {
@@ -20,7 +20,7 @@ export async function askRipple(analysis, question) {
     },
   };
 
-  const provider = new GeminiProvider();
+  const provider = new OpenRouterProvider();
 
   const prompt = `
 You are Ripple, an AI repository analysis assistant.

@@ -1,4 +1,4 @@
-import { GeminiProvider } from "./geminiProvider.js";
+import { OpenRouterProvider } from "./openRouterProvider.js";
 import { retrieveContext } from "../context/contextRetriever.js";
 import { parseAIResponse } from "./aiResponse.js";
 
@@ -21,7 +21,7 @@ export async function analyzeImpact(analysis, target) {
     },
   };
 
-  const provider = new GeminiProvider();
+  const provider = new OpenRouterProvider();
 
   const prompt = `
 You are Ripple, a repository impact-analysis assistant.
