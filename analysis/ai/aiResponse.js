@@ -3,25 +3,36 @@ export function parseAIResponse(response, fallback = {}) {
     return fallback;
   }
 
-  let cleaned = response
-    .trim()
+  let cleaned = response.trim();
+
+  // Remove markdown code fences if the model uses them
+  cleaned = cleaned
     .replace(/^```json\s*/i, "")
     .replace(/^```\s*/i, "")
     .replace(/\s*```$/i, "")
     .trim();
 
-  // Remove JavaScript-style comments from JSON output
-  cleaned = cleaned.replace(
-    /(^|["\s])\/\/.*$/gm,
-    "$1"
-  );
+  // Find JSON object inside any extra text
+  const firstBrace = cleaned.indexOf("{");
+  const lastBrace = cleaned.lastIndexOf("}");
+
+  if (firstBrace !== -1 && lastBrace !== -1) {
+    cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+  }
 
   try {
-    return JSON.parse(cleaned);
-  } catch {
+    const parsed = JSON.parse(cleaned);
+
     return {
+      ...fallback,
+      ...parsed,
+    };
+  } catch {
+   
+
+    return {
+      ...fallback,
       raw: response,
-      ...fallback
     };
   }
 }

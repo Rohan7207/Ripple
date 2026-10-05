@@ -23,25 +23,22 @@ const BUILTIN_FUNCTIONS = new Set([
   "setTimeout",
   "setInterval",
   "clearTimeout",
-  "clearInterval"
+  "clearInterval",
 ]);
 
 function resolveImportPath(
   filePath,
   importPath,
   repositoryPath,
-  files
+  files,
 ) {
-  if (
-    !importPath ||
-    !importPath.startsWith(".")
-  ) {
+  if (!importPath || !importPath.startsWith(".")) {
     return null;
   }
 
   const absoluteImportPath = path.resolve(
     path.dirname(filePath),
-    importPath
+    importPath,
   );
 
   const candidates = [
@@ -50,20 +47,12 @@ function resolveImportPath(
     `${absoluteImportPath}.jsx`,
     `${absoluteImportPath}.ts`,
     `${absoluteImportPath}.tsx`,
-    path.join(
-      absoluteImportPath,
-      "index.js"
-    ),
-    path.join(
-      absoluteImportPath,
-      "index.ts"
-    )
+    path.join(absoluteImportPath, "index.js"),
+    path.join(absoluteImportPath, "index.ts"),
   ];
 
   const matchingFile = files.find((file) =>
-    candidates.includes(
-      path.resolve(file.absolutePath)
-    )
+    candidates.includes(path.resolve(file.absolutePath)),
   );
 
   if (!matchingFile) {
@@ -71,39 +60,29 @@ function resolveImportPath(
   }
 
   return path
-    .relative(
-      repositoryPath,
-      matchingFile.absolutePath
-    )
+    .relative(repositoryPath, matchingFile.absolutePath)
     .replace(/\\/g, "/");
 }
 
 function extractRelationships(
   filePath,
   language,
-  options = {}
+  options = {},
 ) {
-  if (
-    !["JavaScript", "TypeScript"].includes(
-      language
-    )
-  ) {
+  if (!["JavaScript", "TypeScript"].includes(language)) {
     return [];
   }
 
   const {
     repositoryPath,
     files = [],
-    symbols = []
+    symbols = [],
   } = options;
 
   let content;
 
   try {
-    content = fs.readFileSync(
-      filePath,
-      "utf8"
-    );
+    content = fs.readFileSync(filePath, "utf8");
   } catch {
     return [];
   }
@@ -119,8 +98,8 @@ function extractRelationships(
         "classProperties",
         "objectRestSpread",
         "optionalChaining",
-        "dynamicImport"
-      ]
+        "dynamicImport",
+      ],
     });
   } catch {
     return [];
@@ -128,47 +107,32 @@ function extractRelationships(
 
   const relationships = [];
 
-  const relativeFilePath =
-    repositoryPath
-      ? path
-          .relative(
-            repositoryPath,
-            filePath
-          )
-          .replace(/\\/g, "/")
-      : filePath.replace(/\\/g, "/");
+  const relativeFilePath = repositoryPath
+    ? path
+        .relative(repositoryPath, filePath)
+        .replace(/\\/g, "/")
+    : filePath.replace(/\\/g, "/");
 
   const fileSymbols = symbols.filter(
-    (symbol) =>
-      symbol.filePath ===
-      relativeFilePath
+    (symbol) => symbol.filePath === relativeFilePath,
   );
 
   const localSymbols = new Set(
-    fileSymbols.map(
-      (symbol) => symbol.name
-    )
+    fileSymbols.map((symbol) => symbol.name),
   );
 
   const symbolIndex = new Map();
 
   for (const symbol of symbols) {
-    if (
-      !symbol.name ||
-      !symbol.filePath
-    ) {
+    if (!symbol.name || !symbol.filePath) {
       continue;
     }
 
-    const key = symbol.name;
-
-    if (!symbolIndex.has(key)) {
-      symbolIndex.set(key, []);
+    if (!symbolIndex.has(symbol.name)) {
+      symbolIndex.set(symbol.name, []);
     }
 
-    symbolIndex
-      .get(key)
-      .push(symbol);
+    symbolIndex.get(symbol.name).push(symbol);
   }
 
   const imports = new Map();
@@ -177,27 +141,20 @@ function extractRelationships(
     type,
     from,
     to,
-    extra = {}
+    extra = {},
   ) {
-    if (
-      !from ||
-      !to ||
-      from === to
-    ) {
+    if (!from || !to || from === to) {
       return;
     }
 
-    const exists =
-      relationships.some(
-        (relationship) =>
-          relationship.type === type &&
-          relationship.from === from &&
-          relationship.to === to &&
-          relationship.fromFilePath ===
-            extra.fromFilePath &&
-          relationship.toFilePath ===
-            extra.toFilePath
-      );
+    const exists = relationships.some(
+      (relationship) =>
+        relationship.type === type &&
+        relationship.from === from &&
+        relationship.to === to &&
+        relationship.fromFilePath === extra.fromFilePath &&
+        relationship.toFilePath === extra.toFilePath,
+    );
 
     if (exists) {
       return;
@@ -207,7 +164,7 @@ function extractRelationships(
       type,
       from,
       to,
-      ...extra
+      ...extra,
     });
   }
 
@@ -216,24 +173,17 @@ function extractRelationships(
       return null;
     }
 
-    if (
-      node.type ===
-      "FunctionDeclaration"
-    ) {
+    if (node.type === "FunctionDeclaration") {
       return node.id?.name || null;
     }
 
     if (
-      node.type ===
-        "VariableDeclarator" &&
-      node.id?.type ===
-        "Identifier" &&
+      node.type === "VariableDeclarator" &&
+      node.id?.type === "Identifier" &&
       node.init &&
       (
-        node.init.type ===
-          "FunctionExpression" ||
-        node.init.type ===
-          "ArrowFunctionExpression"
+        node.init.type === "FunctionExpression" ||
+        node.init.type === "ArrowFunctionExpression"
       )
     ) {
       return node.id.name;
@@ -244,18 +194,15 @@ function extractRelationships(
 
   function resolveSymbol(
     name,
-    preferredFilePath = null
+    preferredFilePath = null,
   ) {
-    const candidates =
-      symbolIndex.get(name) || [];
+    const candidates = symbolIndex.get(name) || [];
 
     if (preferredFilePath) {
-      const exact =
-        candidates.find(
-          (symbol) =>
-            symbol.filePath ===
-            preferredFilePath
-        );
+      const exact = candidates.find(
+        (symbol) =>
+          symbol.filePath === preferredFilePath,
+      );
 
       if (exact) {
         return exact;
@@ -271,20 +218,15 @@ function extractRelationships(
 
   function walk(
     node,
-    currentFunction = null
+    currentFunction = null,
   ) {
-    if (
-      !node ||
-      typeof node !== "object"
-    ) {
+    if (!node || typeof node !== "object") {
       return;
     }
 
-    let activeFunction =
-      currentFunction;
+    let activeFunction = currentFunction;
 
-    const functionName =
-      getFunctionName(node);
+    const functionName = getFunctionName(node);
 
     if (functionName) {
       activeFunction = functionName;
@@ -292,22 +234,20 @@ function extractRelationships(
 
     switch (node.type) {
       case "ImportDeclaration": {
-        const source =
-          node.source?.value;
+        const source = node.source?.value;
 
         if (!source) {
           break;
         }
 
-        const resolvedPath =
-          repositoryPath
-            ? resolveImportPath(
-                filePath,
-                source,
-                repositoryPath,
-                files
-              )
-            : null;
+        const resolvedPath = repositoryPath
+          ? resolveImportPath(
+              filePath,
+              source,
+              repositoryPath,
+              files,
+            )
+          : null;
 
         if (resolvedPath) {
           addRelationship(
@@ -315,43 +255,30 @@ function extractRelationships(
             relativeFilePath,
             resolvedPath,
             {
-              fromFilePath:
-                relativeFilePath,
-              toFilePath:
-                resolvedPath
-            }
+              fromFilePath: relativeFilePath,
+              toFilePath: resolvedPath,
+            },
           );
         }
 
-        node.specifiers?.forEach(
-          (specifier) => {
-            const importedName =
-              specifier.imported
-                ?.name ||
-              specifier.imported
-                ?.value ||
-              "default";
+        node.specifiers?.forEach((specifier) => {
+          const importedName =
+            specifier.imported?.name ||
+            specifier.imported?.value ||
+            "default";
 
-            const localName =
-              specifier.local?.name;
+          const localName =
+            specifier.local?.name;
 
-            if (
-              !localName ||
-              !resolvedPath
-            ) {
-              return;
-            }
-
-            imports.set(
-              localName,
-              {
-                importedName,
-                filePath:
-                  resolvedPath
-              }
-            );
+          if (!localName || !resolvedPath) {
+            return;
           }
-        );
+
+          imports.set(localName, {
+            importedName,
+            filePath: resolvedPath,
+          });
+        });
 
         break;
       }
@@ -366,7 +293,7 @@ function extractRelationships(
               filePath,
               node.source.value,
               repositoryPath,
-              files
+              files,
             );
 
           if (resolvedPath) {
@@ -375,11 +302,9 @@ function extractRelationships(
               relativeFilePath,
               resolvedPath,
               {
-                fromFilePath:
-                  relativeFilePath,
-                toFilePath:
-                  resolvedPath
-              }
+                fromFilePath: relativeFilePath,
+                toFilePath: resolvedPath,
+              },
             );
           }
         }
@@ -388,104 +313,156 @@ function extractRelationships(
       }
 
       case "CallExpression": {
-        if (
-          !activeFunction ||
-          node.callee?.type !==
-            "Identifier"
-        ) {
+        if (!activeFunction) {
           break;
         }
 
-        const calledName =
-          node.callee.name;
+        /*
+         * Normal function call:
+         *
+         * createComplaintRecord(...)
+         */
+        if (node.callee?.type === "Identifier") {
+          const calledName = node.callee.name;
 
-        if (
-          BUILTIN_FUNCTIONS.has(
-            calledName
-          )
-        ) {
-          break;
-        }
+          if (BUILTIN_FUNCTIONS.has(calledName)) {
+            break;
+          }
 
-        const imported =
-          imports.get(calledName);
+          const imported = imports.get(calledName);
 
-        if (imported) {
-          const targetSymbol =
-            resolveSymbol(
+          if (imported) {
+            const targetSymbol = resolveSymbol(
               imported.importedName,
-              imported.filePath
+              imported.filePath,
             );
 
-          if (targetSymbol) {
-            addRelationship(
-              "calls",
-              activeFunction,
-              targetSymbol.name,
-              {
-                fromFilePath:
-                  relativeFilePath,
-                toFilePath:
-                  targetSymbol.filePath
-              }
-            );
-          }
-
-          break;
-        }
-
-        if (
-          localSymbols.has(
-            calledName
-          )
-        ) {
-          const targetSymbol =
-            resolveSymbol(
-              calledName,
-              relativeFilePath
-            );
-
-          if (targetSymbol) {
-            addRelationship(
-              "calls",
-              activeFunction,
-              targetSymbol.name,
-              {
-                fromFilePath:
-                  relativeFilePath,
-                toFilePath:
-                  targetSymbol.filePath
-              }
-            );
-          }
-
-          break;
-        }
-
-        const targetSymbol =
-          resolveSymbol(calledName);
-
-        if (targetSymbol) {
-          addRelationship(
-            "calls",
-            activeFunction,
-            targetSymbol.name,
-            {
-              fromFilePath:
-                relativeFilePath,
-              toFilePath:
-                targetSymbol.filePath
+            if (targetSymbol) {
+              addRelationship(
+                "calls",
+                activeFunction,
+                targetSymbol.name,
+                {
+                  fromFilePath: relativeFilePath,
+                  toFilePath: targetSymbol.filePath,
+                },
+              );
             }
-          );
+
+            break;
+          }
+
+          if (localSymbols.has(calledName)) {
+            const targetSymbol = resolveSymbol(
+              calledName,
+              relativeFilePath,
+            );
+
+            if (targetSymbol) {
+              addRelationship(
+                "calls",
+                activeFunction,
+                targetSymbol.name,
+                {
+                  fromFilePath: relativeFilePath,
+                  toFilePath: targetSymbol.filePath,
+                },
+              );
+            }
+
+            break;
+          }
+
+          const targetSymbol =
+            resolveSymbol(calledName);
+
+          if (targetSymbol) {
+            addRelationship(
+              "calls",
+              activeFunction,
+              targetSymbol.name,
+              {
+                fromFilePath: relativeFilePath,
+                toFilePath: targetSymbol.filePath,
+              },
+            );
+          }
+
+          break;
+        }
+
+        /*
+         * Member function call:
+         *
+         * complaintService.createComplaintRecord(...)
+         */
+        if (
+          node.callee?.type === "MemberExpression" &&
+          node.callee.computed === false &&
+          node.callee.object?.type === "Identifier" &&
+          node.callee.property?.type === "Identifier"
+        ) {
+          const objectName =
+            node.callee.object.name;
+
+          const calledName =
+            node.callee.property.name;
+
+          if (BUILTIN_FUNCTIONS.has(calledName)) {
+            break;
+          }
+
+          const objectImport =
+            imports.get(objectName);
+
+          if (objectImport) {
+            const targetSymbol =
+              resolveSymbol(
+                calledName,
+                objectImport.filePath,
+              );
+
+            if (targetSymbol) {
+              addRelationship(
+                "calls",
+                activeFunction,
+                targetSymbol.name,
+                {
+                  fromFilePath: relativeFilePath,
+                  toFilePath: targetSymbol.filePath,
+                },
+              );
+            }
+
+            break;
+          }
+
+          /*
+           * Local object/member call.
+           * Only accept it when the symbol is
+           * uniquely identifiable.
+           */
+          const targetSymbol =
+            resolveSymbol(calledName);
+
+          if (targetSymbol) {
+            addRelationship(
+              "calls",
+              activeFunction,
+              targetSymbol.name,
+              {
+                fromFilePath: relativeFilePath,
+                toFilePath: targetSymbol.filePath,
+              },
+            );
+          }
         }
 
         break;
       }
     }
 
-    for (const key of Object.keys(
-      node
-    )) {
+    for (const key of Object.keys(node)) {
       if (
         key === "loc" ||
         key === "start" ||
@@ -498,19 +475,13 @@ function extractRelationships(
 
       if (Array.isArray(value)) {
         value.forEach((child) => {
-          walk(
-            child,
-            activeFunction
-          );
+          walk(child, activeFunction);
         });
       } else if (
         value &&
         typeof value === "object"
       ) {
-        walk(
-          value,
-          activeFunction
-        );
+        walk(value, activeFunction);
       }
     }
   }
@@ -521,5 +492,5 @@ function extractRelationships(
 }
 
 export {
-  extractRelationships
+  extractRelationships,
 };

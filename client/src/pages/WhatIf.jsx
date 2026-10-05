@@ -67,7 +67,6 @@ function WhatIf() {
   const affectedFiles = Array.isArray(analysis?.affectedFiles)
     ? analysis.affectedFiles
     : [];
-
   const affectedSymbols = Array.isArray(analysis?.affectedSymbols)
     ? analysis.affectedSymbols
     : [];
@@ -615,6 +614,9 @@ function formatValue(value) {
       value.message ||
       value.description ||
       value.reason ||
+      value.risk ||
+      value.text ||
+      value.change ||
       value.summary ||
       JSON.stringify(value)
     );

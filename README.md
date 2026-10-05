@@ -140,33 +140,49 @@ This helps Ripple reduce unsupported assumptions and keeps repository facts sepa
 
 ## 🤖 AI Architecture
 
-Ripple uses a **single AI Orchestrator**, rather than multiple autonomous agents.
+Ripple uses a single AI Orchestrator, rather than multiple autonomous agents.
 
-```text
 User Request
+
      │
+
      ▼
+
 AI Orchestrator
+
      │
+
      ▼
+
 Relevant Repository Context
+
      │
+
      ▼
-OpenRouter LLM
+
+OpenRouter API
+
      │
+
      ▼
+
+nvidia/nemotron-3.5-lightning:free
+
+     │
+
+     ▼
+
 Structured AI Result
-```
 
 The AI layer is responsible for:
 
-- Understanding repository context
-- Explaining architecture
-- Answering questions
-- Interpreting relationships
-- Explaining potential impact
-- Reasoning about hypothetical changes
-- Generating implementation guidance
+Understanding repository context
+Explaining architecture
+Answering questions
+Interpreting relationships
+Explaining potential impact
+Reasoning about hypothetical changes
+Generating implementation guidance
 
 The deterministic analysis layer remains responsible for repository facts.
 
@@ -254,13 +270,13 @@ Detected sensitive values are protected rather than intentionally passed into AI
 
 ## ⚠️ AI Token & Request Limits
 
-Ripple currently uses the **OpenRouter API** with the `nvidia/nemotron-3.5-lightning:free` model.
+Ripple currently uses the OpenRouter API with the nvidia/nemotron-3.5-lightning:free model.
 
-Large repositories or complex questions can produce large AI contexts. Depending on the repository size, retrieved context, and current provider availability, AI analysis may take some time to generate a response or may encounter provider rate limits.
+Large repositories or complex questions can produce large AI contexts. Depending on repository size, retrieved context, and current provider availability, AI analysis may take some time to generate a response or may encounter provider rate limits.
 
-**Response generation time can vary**, especially for Impact Analysis and What-If Analysis, because Ripple first retrieves and processes relevant repository context before sending it to the AI model. This repository-grounded analysis may take longer than a simple AI chat request.
+Response generation time can vary, especially for Impact Analysis and What-If Analysis, because Ripple first retrieves and processes relevant repository context before sending it to the AI model. This repository-grounded analysis may take longer than a simple AI chat request.
 
-Ripple handles AI failures gracefully instead of exposing raw provider errors to the user. For example, token-limit or provider failures are converted into user-friendly messages asking the user to shorten the request or retry later.
+Ripple handles AI failures gracefully instead of exposing raw provider errors to the user. For example, provider rate-limit or token-limit failures are converted into user-friendly messages asking the user to shorten the request or retry later.
 
 The deterministic repository analysis remains available even when an AI request cannot be completed.
 
@@ -282,16 +298,14 @@ Ripple does not claim deep structural understanding when the underlying analyzer
 ---
 
 ## 🏗️ Technology Stack
-
-| Layer            | Technology                           |
-| ---------------- | ------------------------------------ |
-| Frontend         | React, Vite                          |
-| Backend          | Node.js, Express.js                  |
-| AI               | OpenRouter API                       |
-| AI Model         | `nvidia/nemotron-3.5-lightning:free` |
-| Repository Input | ZIP / Public GitHub                  |
-| Deployment       | Vercel + Railway                     |
-| Language         | JavaScript                           |
+Layer	Technology
+Frontend	React, Vite
+Backend	Node.js, Express.js
+AI	OpenRouter API
+AI Model	nvidia/nemotron-3.5-lightning:free
+Repository Input	ZIP / Public GitHub
+Deployment	Vercel + Railway
+Language	JavaScript
 
 ---
 
