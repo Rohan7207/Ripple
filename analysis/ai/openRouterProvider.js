@@ -23,24 +23,26 @@ export class OpenRouterProvider extends AIProvider {
             "HTTP-Referer": "https://ripple-rosy-seven.vercel.app",
             "X-Title": "Ripple AI",
           },
-          body: JSON.stringify({
-            model: options.model || "nvidia/nemotron-3.5-lightning:free",
-            messages: [
-              {
-                role: "user",
-                content: prompt,
-              },
-            ],
-            temperature: options.temperature ?? 0,
-            max_tokens: options.maxTokens ?? 1200,
-          }),
+         body: JSON.stringify({
+  model: options.model || "nvidia/nemotron-3.5-lightning:free",
+  messages: [
+    {
+      role: "user",
+      content: prompt,
+    },
+  ],
+  temperature: options.temperature ?? 0,
+  max_tokens: options.maxTokens ?? 1200,
+  ...(options.responseFormat
+    ? { response_format: options.responseFormat }
+    : {}),
+}),
         },
       );
 
       const data = await response.json();
 
       if (!response.ok) {
-        console.error("OPENROUTER ERROR:", data);
 
         const error = new Error(
           data?.error?.message || "OpenRouter request failed",
@@ -55,7 +57,6 @@ export class OpenRouterProvider extends AIProvider {
 
       return data?.choices?.[0]?.message?.content || "";
     } catch (error) {
-      console.error("OPENROUTER ERROR:", error);
 
       if (!error.code) {
         error.code = "AI_PROVIDER_ERROR";

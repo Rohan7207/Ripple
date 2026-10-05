@@ -155,15 +155,23 @@ export async function askRippleController(req, res, next) {
 
 export async function analyzeImpactController(req, res, next) {
   try {
+   
     const repository = getRepositoryById(req.params.repositoryId);
 
-    const result = await analyzeImpact(repository.analysis, req.body?.target);
+  
+
+    const result = await analyzeImpact(
+      repository.analysis,
+      req.body?.target,
+    );
+
 
     return res.json({
       success: true,
       data: result,
     });
   } catch (error) {
+    console.error(error);
     next(error);
   }
 }

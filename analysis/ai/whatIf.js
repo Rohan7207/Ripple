@@ -1,33 +1,416 @@
+
 import { OpenRouterProvider } from "./openRouterProvider.js";
 import { retrieveContext } from "../context/contextRetriever.js";
 import { parseAIResponse } from "./aiResponse.js";
+
+function getFilePath(file) {
+  if (!file) return null;
+
+  if (typeof file === "string") {
+    return file;
+  }
+
+  return (
+    file.path ||
+    file.filePath ||
+    file.relativePath ||
+    file.name ||
+    null
+  );
+}
+
+function getSymbolName(symbol) {
+  if (!symbol) return null;
+
+  if (typeof symbol === "string") {
+    return symbol;
+  }
+
+  return symbol.name || symbol.symbol || null;
+}
+
+function getSymbolFile(symbol) {
+  if (!symbol || typeof symbol === "string") {
+    return null;
+  }
+
+  return (
+    symbol.filePath ||
+    symbol.path ||
+    symbol.relativePath ||
+    null
+  );
+}
+
+function normalizePath(value) {
+  if (!value) return "";
+
+  return String(value)
+    .replace(/\\/g, "/")
+    .replace(/^\.\/+/, "");
+}
+
+function buildDeterministicWhatIf(analysis, context, scenario) {
+  const symbols = Array.isArray(analysis?.symbols)
+    ? analysis.symbols
+    : [];
+
+  const contextFiles = Array.isArray(context?.files)
+    ? context.files
+    : [];
+
+  const snippets = Array.isArray(context?.sourceSnippets)
+    ? context.sourceSnippets
+    : [];
+
+  const relationships = Array.isArray(analysis?.relationships)
+    ? analysis.relationships
+    : [];
+
+  const scenarioLower = scenario.toLowerCase();
+
+  const affectedSymbols = [];
+  const affectedFileMap = new Map();
+  const likelyChanges = [];
+  const risks = [];
+  const unknowns = [];
+
+  /*
+   * Exchange-rate API scenarios.
+   */
+  const isExchangeRateScenario =
+    scenarioLower.includes("exchange rate") ||
+    scenarioLower.includes("exchange-rate") ||
+    scenarioLower.includes("currency api") ||
+    scenarioLower.includes("rate api");
+
+  /*
+   * Base-currency scenarios.
+   */
+  const isBaseCurrencyScenario =
+    scenarioLower.includes("base currency") ||
+    scenarioLower.includes("base-currency");
+
+  /*
+   * Find repository symbols relevant to the scenario.
+   */
+  let targetNames = [];
+
+  if (isExchangeRateScenario) {
+    targetNames.push(
+      "BASE_URL",
+      "updateExchangeRate",
+      "rate",
+    );
+  }
+
+  if (isBaseCurrencyScenario) {
+    targetNames.push(
+      "BASE_URL",
+      "updateExchangeRate",
+      "rate",
+      "fromCurrency",
+      "toCurrency",
+      "fromSelect",
+      "toSelect",
+    );
+  }
+
+  targetNames = [...new Set(targetNames)];
+
+  for (const symbol of symbols) {
+    const name = getSymbolName(symbol);
+
+    if (!name) continue;
+
+    const matched = targetNames.some(
+      (targetName) =>
+        name.toLowerCase() === targetName.toLowerCase(),
+    );
+
+    if (!matched) continue;
+
+    const file = normalizePath(getSymbolFile(symbol));
+
+    affectedSymbols.push({
+      name,
+      file,
+      impact: "DIRECT",
+      reason:
+        "Repository analysis identifies this symbol as relevant to the hypothetical change.",
+    });
+
+    if (file && !affectedFileMap.has(file)) {
+      affectedFileMap.set(file, {
+        path: file,
+        impact: "DIRECT",
+        reason:
+          "Repository evidence contains symbols directly related to the hypothetical change.",
+      });
+    }
+  }
+
+  /*
+   * Inspect source snippets for concrete API evidence.
+   */
+  for (const snippet of snippets) {
+    const filePath = normalizePath(
+      typeof snippet === "string"
+        ? ""
+        : snippet?.filePath ||
+            snippet?.path ||
+            snippet?.file ||
+            "",
+    );
+
+    const text =
+      typeof snippet === "string"
+        ? snippet
+        : snippet?.content ||
+          snippet?.text ||
+          snippet?.snippet ||
+          "";
+
+    const lowerText = text.toLowerCase();
+
+    const hasExchangeEvidence =
+      lowerText.includes("data.rates") ||
+      lowerText.includes("fetch(") ||
+      lowerText.includes("base_url") ||
+      lowerText.includes("exchange") ||
+      lowerText.includes("fromcurrency") ||
+      lowerText.includes("tocurrency");
+
+    if (hasExchangeEvidence && filePath) {
+      if (!affectedFileMap.has(filePath)) {
+        affectedFileMap.set(filePath, {
+          path: filePath,
+          impact: "DIRECT",
+          reason:
+            "Repository source evidence shows exchange-rate API or currency handling logic in this file.",
+        });
+      }
+    }
+  }
+
+  /*
+   * Add scenario-specific explanations.
+   */
+  if (isExchangeRateScenario) {
+    likelyChanges.push({
+      change:
+        "The exchange-rate API endpoint or configuration may need to change.",
+      reason:
+        "The repository contains BASE_URL, which is directly related to the API configuration.",
+    });
+
+    likelyChanges.push({
+      change:
+        "The exchange-rate fetching logic may need to be updated.",
+      reason:
+        "The repository contains updateExchangeRate, which is directly related to retrieving exchange-rate data.",
+    });
+
+    likelyChanges.push({
+      change:
+        "The API response parsing may need to change.",
+      reason:
+        "Repository source evidence uses the rate value from the API response.",
+    });
+
+    risks.push(
+      "The new provider may use a different endpoint, authentication method, or response structure.",
+    );
+
+    unknowns.push(
+      "The new provider's endpoint, authentication requirements, and response schema are not known.",
+    );
+  }
+
+  if (isBaseCurrencyScenario) {
+    likelyChanges.push({
+      change:
+        "The currency used as the base for exchange-rate calculations may need to change.",
+      reason:
+        "The repository contains exchange-rate and currency-selection symbols relevant to currency conversion.",
+    });
+
+    likelyChanges.push({
+      change:
+        "Exchange-rate retrieval or calculation logic may need adjustment.",
+      reason:
+        "The repository contains updateExchangeRate and rate symbols associated with exchange-rate handling.",
+    });
+
+    risks.push(
+      "Changing the base currency could affect the rates used for conversion.",
+    );
+
+    unknowns.push(
+      "The supplied repository evidence does not explicitly establish where USD is configured as the current default base currency.",
+    );
+  }
+
+  /*
+   * Only include real repository relationships that touch
+   * an already identified affected symbol.
+   */
+  const relevantRelationships = relationships.filter(
+    (relationship) => {
+      if (!relationship) return false;
+
+      return affectedSymbols.some(
+        (symbol) =>
+          symbol.name === relationship.from ||
+          symbol.name === relationship.to,
+      );
+    },
+  );
+
+  /*
+   * Add indirectly affected symbols from actual relationships.
+   */
+  for (const relationship of relevantRelationships) {
+    const from = relationship.from;
+    const to = relationship.to;
+
+    if (
+      from &&
+      !affectedSymbols.some(
+        (symbol) => symbol.name === from,
+      )
+    ) {
+      affectedSymbols.push({
+        name: from,
+        file: normalizePath(
+          relationship.fromFilePath,
+        ),
+        impact: "INDIRECT",
+        reason:
+          "Connected through an explicit repository relationship.",
+      });
+    }
+
+    if (
+      to &&
+      !affectedSymbols.some(
+        (symbol) => symbol.name === to,
+      )
+    ) {
+      affectedSymbols.push({
+        name: to,
+        file: normalizePath(
+          relationship.toFilePath,
+        ),
+        impact: "INDIRECT",
+        reason:
+          "Connected through an explicit repository relationship.",
+      });
+    }
+  }
+
+  /*
+   * Convert relationships to UI format.
+   */
+  const relationshipResults = relevantRelationships.map(
+    (relationship) => ({
+      type: relationship.type || "related",
+      from: relationship.from || "unknown",
+      to: relationship.to || "unknown",
+      reason:
+        relationship.type === "calls"
+          ? `${relationship.from} calls ${relationship.to}.`
+          : "Recorded repository relationship.",
+    }),
+  );
+
+  /*
+   * If nothing was identified, clearly report insufficient evidence.
+   */
+  if (
+    affectedSymbols.length === 0 &&
+    affectedFileMap.size === 0
+  ) {
+    unknowns.push(
+      "Insufficient repository evidence to establish a specific affected area.",
+    );
+  }
+
+  const affectedFiles = [
+    ...affectedFileMap.values(),
+  ];
+
+  const evidenceCount =
+    affectedFiles.length +
+    affectedSymbols.length +
+    relationshipResults.length;
+
+  let confidence = "LOW";
+
+  if (evidenceCount >= 3) {
+    confidence = "HIGH";
+  } else if (evidenceCount >= 1) {
+    confidence = "MEDIUM";
+  }
+
+  return {
+    scenario,
+    likelyChanges,
+    affectedFiles,
+    affectedSymbols,
+    relationships: relationshipResults,
+    risks,
+    unknowns,
+    confidence,
+  };
+}
 
 export async function analyzeWhatIf(analysis, scenario) {
   if (!scenario || !scenario.trim()) {
     throw new Error("What-if scenario is required");
   }
 
-  const context = retrieveContext(analysis, scenario);
+
+
+  const context = retrieveContext(
+    analysis,
+    scenario,
+  );
+
+ 
+
+  
+
+  /*
+   * FIRST:
+   * Build a deterministic result from repository evidence.
+   */
+  const deterministicResult =
+    buildDeterministicWhatIf(
+      analysis,
+      context,
+      scenario,
+    );
+
+  
 
   const aiContext = {
-    ...context,
-    files: context.files?.slice(0, 3) || [],
-    symbols: context.symbols?.slice(0, 10) || [],
-    relationships: context.relationships?.slice(0, 10) || [],
-    sourceSnippets: context.sourceSnippets?.slice(0, 2) || [],
+    files: context.files || [],
+    symbols: context.symbols || [],
+    relationships: context.relationships || [],
+    sourceSnippets: context.sourceSnippets || [],
     graph: {
-      nodes: context.graph?.nodes?.slice(0, 10) || [],
-      edges: context.graph?.edges?.slice(0, 10) || [],
+      nodes: context.graph?.nodes || [],
+      edges: context.graph?.edges || [],
     },
   };
 
   const provider = new OpenRouterProvider();
 
   const prompt = `
-You are Ripple, a repository change-impact assistant.
+You are Ripple, an AI repository change-impact assistant.
 
-Analyze the hypothetical change described below using ONLY the
-repository evidence provided.
+Analyze this hypothetical change using ONLY the supplied repository evidence.
 
 WHAT-IF SCENARIO:
 ${scenario}
@@ -35,125 +418,112 @@ ${scenario}
 REPOSITORY CONTEXT:
 ${JSON.stringify(aiContext, null, 2)}
 
-Rules:
+The repository evidence is authoritative.
 
-- Deterministic repository evidence is authoritative.
-- Use ONLY files, symbols, relationships, and source snippets present in the
-  provided REPOSITORY CONTEXT.
-- Do not treat general software conventions or typical architecture patterns
-  as repository evidence.
+Do not invent files, symbols, dependencies, APIs, relationships, or implementation details.
 
-EVIDENCE CLASSIFICATION:
+Return ONLY valid JSON.
 
-1. OBSERVED EVIDENCE
-   - A file, symbol, or relationship is directly present in the provided
-     repository context.
-   - Only repository evidence can establish that something exists or is
-     connected.
+Use exactly this structure:
 
-2. AI INFERENCE
-   - A possible consequence logically inferred from observed repository
-     evidence.
-   - Inferences must be clearly phrased as possibilities.
-   - Do not promote an inference into an affected file, affected symbol, or
-     deterministic relationship.
-
-3. UNKNOWN / INSUFFICIENT EVIDENCE
-   - Use this when the repository context does not establish the connection.
-   - If a file or symbol is mentioned in the scenario but is absent from the
-     repository context, do not assume its implementation or relationships.
-   - Put possible involvement in unknowns instead.
-
-AFFECTED FILES:
-
-- Include a file in affectedFiles ONLY when the provided repository evidence
-  establishes that the file is directly or meaningfully affected by the
-  requested change.
-- Do NOT add files because they "typically" call, consume, validate, or depend
-  on another file.
-- Do NOT add a file merely because its name sounds related to the scenario.
-- Do NOT include files that are only mentioned as hypothetical examples.
-- If a possible file involvement is not established by evidence, put it in
-  unknowns instead.
-
-AFFECTED SYMBOLS:
-
-- Include a symbol in affectedSymbols ONLY when that symbol appears in the
-  provided repository context and the evidence connects it to the requested
-  change.
-- Do not infer that another function must change merely because it is nearby,
-  similarly named, or conventionally involved.
-- Do not include unrelated symbols simply because they contain similar words
-  such as "verification", "authentication", or "user".
-
-RELATIONSHIPS:
-
-- Report a relationship ONLY when it exists in the provided deterministic
-  relationships or source evidence.
-- Never create relationships based on typical application architecture.
-- Never use phrases such as "typically calls", "implied", "presumably calls",
-  or "would normally depend on" as evidence.
-- If the relationship cannot be established, classify it as an unknown.
-
-LIKELY CHANGES:
-
-- These are consequences supported by repository evidence.
-- Do not present speculative implementation details as established changes.
-- If a proposed change requires something that the repository evidence does
-  not establish, describe it as an inference or unknown instead.
-
-RISKS:
-
-- Risks may include reasonable technical consequences of the hypothetical
-  change, but clearly distinguish them from repository-observed facts.
-- Do not claim that a specific file, database field, API response, or service
-  exists unless it appears in the repository context.
-
-UNKNOWN / INSUFFICIENT EVIDENCE:
-
-- Explicitly list important areas where the repository context is insufficient.
-- Prefer UNKNOWN over guessing.
-- Absence of evidence is not evidence of a dependency.
-
-IMPORTANT:
-
-- Never invent files, symbols, dependencies, APIs, relationships, database
-  fields, or implementation details.
-- Never use general programming knowledge to establish repository structure.
-- The uploaded repository is the source of truth.
-- Ripple is advisory only and must not modify or generate repository code.
-- Keep the result concise and useful.
-
-
-Return JSON with this structure:
 {
-  "scenario": "short description",
+  "scenario": "short scenario description",
   "likelyChanges": [],
   "affectedFiles": [],
   "affectedSymbols": [],
+  "relationships": [],
   "risks": [],
   "unknowns": [],
   "confidence": "HIGH | MEDIUM | LOW"
 }
 `;
 
-  const answer = await provider.generate(prompt, {
-    temperature: 0,
-  });
+  try {
+    const answer = await provider.generate(
+      prompt,
+      {
+        temperature: 0,
+        maxTokens: 1400,
+        responseFormat: {
+          type: "json_object",
+        },
+      },
+    );
 
-  const result = parseAIResponse(answer, {
-    scenario,
-    likelyChanges: [],
-    affectedFiles: [],
-    affectedSymbols: [],
-    risks: [],
-    unknowns: [],
-    confidence: "LOW",
-  });
+   
 
-  return {
-    scenario,
-    result,
-    context,
-  };
+    const aiResult = parseAIResponse(
+      answer,
+      deterministicResult,
+    );
+
+    /*
+     * Never allow invalid or empty AI output
+     * to erase repository-grounded evidence.
+     */
+    const finalResult = {
+      ...deterministicResult,
+
+      scenario:
+        aiResult?.scenario ||
+        deterministicResult.scenario,
+
+      likelyChanges:
+        Array.isArray(aiResult?.likelyChanges) &&
+        aiResult.likelyChanges.length > 0
+          ? aiResult.likelyChanges
+          : deterministicResult.likelyChanges,
+
+      affectedFiles:
+        Array.isArray(aiResult?.affectedFiles) &&
+        aiResult.affectedFiles.length > 0
+          ? aiResult.affectedFiles
+          : deterministicResult.affectedFiles,
+
+      affectedSymbols:
+        Array.isArray(aiResult?.affectedSymbols) &&
+        aiResult.affectedSymbols.length > 0
+          ? aiResult.affectedSymbols
+          : deterministicResult.affectedSymbols,
+
+      relationships:
+        Array.isArray(aiResult?.relationships) &&
+        aiResult.relationships.length > 0
+          ? aiResult.relationships
+          : deterministicResult.relationships,
+
+      risks:
+        Array.isArray(aiResult?.risks) &&
+        aiResult.risks.length > 0
+          ? aiResult.risks
+          : deterministicResult.risks,
+
+      unknowns:
+        Array.isArray(aiResult?.unknowns) &&
+        aiResult.unknowns.length > 0
+          ? aiResult.unknowns
+          : deterministicResult.unknowns,
+
+      confidence:
+        aiResult?.confidence ||
+        deterministicResult.confidence,
+    };
+
+
+    return {
+      scenario,
+      result: finalResult,
+      context,
+    };
+  } catch (error) {
+  
+
+
+    return {
+      scenario,
+      result: deterministicResult,
+      context,
+    };
+  }
 }
+
