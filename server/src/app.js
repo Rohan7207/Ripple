@@ -46,7 +46,10 @@ app.use((err, req, res, next) => {
     success: false,
     error: {
       code: err.code || "INTERNAL_ERROR",
-      message: err.message || "Internal server error",
+      message:
+        err.code === "AI_TOKEN_LIMIT"
+          ? "Ripple AI reached its token limit for this request. Please try a shorter request or wait a few seconds before trying again."
+          : err.message || "Internal server error",
     },
   });
 });

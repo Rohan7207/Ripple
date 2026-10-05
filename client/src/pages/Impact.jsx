@@ -45,7 +45,12 @@ function Impact() {
       console.log("IMPACT RESPONSE:", result);
       setImpact(result);
     } catch (error) {
-      setError(error.message || "Unable to analyze repository impact.");
+      console.error("Impact analysis failed:", error);
+
+      setError(
+        error?.message ||
+          "Unable to generate impact analysis. Please try again.",
+      );
     } finally {
       setIsAnalyzing(false);
     }
@@ -159,11 +164,28 @@ function Impact() {
           </button>
         </div>
 
-        {error && (
-          <div className="mt-3 flex items-start gap-2 p-3 rounded-lg bg-red-500/5 border border-red-500/10">
-            <AlertCircle size={15} className="text-red-400 mt-0.5 shrink-0" />
+        {error && !isAnalyzing && (
+          <div className="min-h-[430px] flex items-center justify-center bg-[#0c1016] border border-red-500/10 rounded-2xl">
+            <div className="text-center max-w-md px-6">
+              <div className="w-12 h-12 mx-auto rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+                <AlertCircle size={22} className="text-red-400" />
+              </div>
 
-            <p className="text-xs text-red-300">{error}</p>
+              <h2 className="text-sm font-semibold text-gray-300 mt-4">
+                Impact analysis unavailable
+              </h2>
+
+              <p className="text-xs text-gray-600 leading-5 mt-2">{error}</p>
+
+              <button
+                onClick={handleAnalyze}
+                disabled={isAnalyzing || !target.trim()}
+                className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-white/10 text-xs text-gray-400 hover:text-white hover:border-white/20 transition disabled:opacity-40"
+              >
+                <RefreshCw size={13} />
+                Try Again
+              </button>
+            </div>
           </div>
         )}
       </form>
@@ -216,7 +238,7 @@ function Impact() {
       {/* =====================================================
           RESULTS
       ====================================================== */}
-      {impact && result && !isAnalyzing && (
+      {impact && result && !isAnalyzing && !error && (
         <div className="space-y-5">
           {/* =================================================
               SUMMARY

@@ -42,7 +42,10 @@ function WhatIf() {
       setResult(data);
     } catch (error) {
       setError(
-        "Ripple could not analyze this scenario right now. Please try again with a shorter or simpler scenario.",
+        error.message ||
+          (result
+            ? "This analysis could not be completed. Showing the previous successful analysis."
+            : "Ripple could not analyze this scenario right now. Please try again."),
       );
     } finally {
       setIsAnalyzing(false);
@@ -173,7 +176,15 @@ function WhatIf() {
           <div className="mt-4 flex items-start gap-2 p-3 rounded-lg bg-red-500/5 border border-red-500/10">
             <AlertCircle size={15} className="text-red-400 mt-0.5 shrink-0" />
 
-            <p className="text-xs text-red-300">{error}</p>
+            <div>
+              <p className="text-xs text-red-300">{error}</p>
+
+              {result && (
+                <p className="text-[11px] text-gray-500 mt-1">
+                  Your previous analysis is still available below.
+                </p>
+              )}
+            </div>
           </div>
         )}
       </form>
