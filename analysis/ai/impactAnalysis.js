@@ -71,10 +71,16 @@ Return JSON with this structure:
   "confidence": "HIGH | MEDIUM | LOW"
 }
 `;
+console.log(
+  "IMPACT CONTEXT:",
+  JSON.stringify(aiContext, null, 2)
+);
 
   const answer = await provider.generate(prompt, {
     temperature: 0,
   });
+  
+console.log("IMPACT RAW AI RESPONSE:", answer);
 
   const result = parseAIResponse(answer, {
     summary: "",
